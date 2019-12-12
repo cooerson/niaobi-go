@@ -12,7 +12,7 @@
  Target Server Version : 110005
  File Encoding         : 65001
 
- Date: 04/12/2019 17:58:19
+ Date: 12/12/2019 23:15:33
 */
 
 
@@ -305,7 +305,9 @@ CREATE TABLE "public"."news" (
   "desc" text COLLATE "pg_catalog"."default" NOT NULL,
   "owner" varchar(20) COLLATE "pg_catalog"."default" NOT NULL,
   "amount" int8,
-  "buddy" varchar(20) COLLATE "pg_catalog"."default"
+  "buddy" varchar(20) COLLATE "pg_catalog"."default",
+  "table" varchar(20) COLLATE "pg_catalog"."default",
+  "source_id" int8
 )
 ;
 ALTER TABLE "public"."news" OWNER TO "postgres";
@@ -313,6 +315,8 @@ COMMENT ON COLUMN "public"."news"."desc" IS '主要内容';
 COMMENT ON COLUMN "public"."news"."owner" IS '接受消息的鸟币号';
 COMMENT ON COLUMN "public"."news"."amount" IS '交易金额';
 COMMENT ON COLUMN "public"."news"."buddy" IS '交易对象的鸟币号';
+COMMENT ON COLUMN "public"."news"."table" IS '相关数据库表名';
+COMMENT ON COLUMN "public"."news"."source_id" IS '相关记录ID';
 
 -- ----------------------------
 -- Table structure for pay
@@ -351,8 +355,7 @@ marker血盟，歃血为盟之意，也称作超级鸟币，承诺为持有者(b
 DROP TABLE IF EXISTS "public"."repay";
 CREATE TABLE "public"."repay" (
   "id" int8 NOT NULL DEFAULT nextval('repay_id_seq'::regclass),
-  "trans_coin" varchar(20) COLLATE "pg_catalog"."default" NOT NULL,
-  "skill_id" int8,
+  "snap_id" int8,
   "bearer" varchar(20) COLLATE "pg_catalog"."default" NOT NULL,
   "issuer" varchar(20) COLLATE "pg_catalog"."default" NOT NULL,
   "is_marker" bool NOT NULL,
@@ -361,8 +364,7 @@ CREATE TABLE "public"."repay" (
 )
 ;
 ALTER TABLE "public"."repay" OWNER TO "postgres";
-COMMENT ON COLUMN "public"."repay"."trans_coin" IS '交易的鸟币名';
-COMMENT ON COLUMN "public"."repay"."skill_id" IS '实际兑现的技能ID';
+COMMENT ON COLUMN "public"."repay"."snap_id" IS '实际兑现的技能快照ID';
 COMMENT ON COLUMN "public"."repay"."bearer" IS '持币者的鸟币号';
 COMMENT ON COLUMN "public"."repay"."issuer" IS '发币者的鸟币号';
 COMMENT ON COLUMN "public"."repay"."is_marker" IS '是否是血盟，血盟为true时，忽略技能ID';
@@ -378,39 +380,43 @@ marker血盟，歃血为盟之意，也称作超级鸟币，承诺为持有者(b
 DROP TABLE IF EXISTS "public"."req";
 CREATE TABLE "public"."req" (
   "id" int8 NOT NULL DEFAULT nextval('req_id_seq'::regclass),
-  "coin_id" int8 NOT NULL,
-  "skill_id" int8 NOT NULL,
-  "bearer_id" int8 NOT NULL,
-  "issuer_id" int8 NOT NULL,
-  "bearer_addr" varchar(1024) COLLATE "pg_catalog"."default" NOT NULL,
-  "issuer_addr" varchar(1024) COLLATE "pg_catalog"."default" NOT NULL,
+  "snap_id" int8 NOT NULL,
+  "bearer" varchar(20) COLLATE "pg_catalog"."default" NOT NULL,
+  "issuer" varchar(20) COLLATE "pg_catalog"."default" NOT NULL,
   "is_marker" bool NOT NULL,
   "amount" int8 NOT NULL,
   "state" int2 NOT NULL DEFAULT 1,
-  "note" varchar(512) COLLATE "pg_catalog"."default",
   "created" timestamp(6) NOT NULL,
-  "updated" timestamp(6)
+  "updated" timestamp(6),
+  "closed" bool NOT NULL DEFAULT false
 )
 ;
 ALTER TABLE "public"."req" OWNER TO "postgres";
-COMMENT ON COLUMN "public"."req"."coin_id" IS '用于兑现的鸟币ID';
-COMMENT ON COLUMN "public"."req"."skill_id" IS '具体要兑现的技能ID';
-COMMENT ON COLUMN "public"."req"."bearer_id" IS '持有者userID';
-COMMENT ON COLUMN "public"."req"."issuer_id" IS '发行者userID';
-COMMENT ON COLUMN "public"."req"."bearer_addr" IS '持有者的鸟币地址';
-COMMENT ON COLUMN "public"."req"."issuer_addr" IS '发行者的鸟币地址';
+COMMENT ON COLUMN "public"."req"."snap_id" IS '具体要兑现的技能ID';
+COMMENT ON COLUMN "public"."req"."bearer" IS '持有者的鸟币号';
+COMMENT ON COLUMN "public"."req"."issuer" IS '发行者的鸟币号';
 COMMENT ON COLUMN "public"."req"."is_marker" IS '是否是血盟，是则忽略skill_id';
 COMMENT ON COLUMN "public"."req"."amount" IS '兑现的鸟币数量，大于0的整数';
 COMMENT ON COLUMN "public"."req"."state" IS '兑现状态（兑现时需要发行者确认，默认24小时响应，超时自动视为拒绝)';
-COMMENT ON COLUMN "public"."req"."note" IS 'issuer对状态4的说明';
-COMMENT ON TABLE "public"."req" IS 'Req 兑现请求(request)，对应req表
+COMMENT ON COLUMN "public"."req"."closed" IS '是否已关闭交易';
+COMMENT ON TABLE "public"."req" IS 'Req 兑现请求(request)，对应req表，2小时内只能向同一用户请求一次。此表不可删除
 兑现状态 state：
-1.已发送兑现请求，等待对方确认/需要确认兑现请求（24h，否则自动标记失败）
-2.对方接受了兑现请求，鸟币已被回收(显示"未兑现"和"已兑现"按钮)/鸟币已成功回收，提示请自行完成兑现
-3.对方拒绝了你的兑现请求(包括未及时处理系统自动拒绝)/您拒绝了兑现请求
-4.兑现未执行(兑现者手动选择的状态，需要添加note说明)/对方认为兑现失败
-5.兑现已完成
-6.兑现失败（由于鸟币不足等原因）';
+10.	请求方提示：已发送兑现请求，等待对方确认（2小时内未接受将影响其鸟币信用）
+   	执行方提示：收到新的兑现请求（请在2小时内确认，否则将影响鸟币信用）
+11.    请求方提示—血盟：已发送血盟兑现请求，等待对方确认（2小时内未接受，将影响其血盟失败次数）
+	执行方提示—血盟：收到新的血盟兑现请求（请在2小时内确认，否则将影响血盟失败次数）
+20.	请求方提示：鸟币已被成功回收（成功回收后，请求方显示3种状态："已兑现"、"兑现中(默认选中)"、"未兑现"按钮）
+   	执行方提示：鸟币已回收，尚未完成兑现
+21.	请求方提示：对方拒绝了兑现请求(包括未及时处理系统自动拒绝)
+   	执行方提示：已拒绝了对方的请求，鸟币信用受到影响
+22.	请求方提示：鸟币不足
+23.	请求方提示：兑现失败（其他原因）
+24.	请求方提示：对方未兑现技能，已直接影响其鸟币信用(状态显示选中"未兑现")
+   	执行方提示：未兑现已影响鸟币信用，"重新兑现"即可立即恢复鸟币信用(点击"重新兑现"按钮后状态改为20"兑现中")，"关闭交易"则执行方不可进行任何操作
+31.	请求方提示：交易完成
+	执行方提示：交易完成
+32.	请求方提示：交易已关闭
+	执行方提示：交易已关闭';
 
 -- ----------------------------
 -- Table structure for skill
@@ -536,16 +542,16 @@ COMMENT ON TABLE "public"."sum" IS '鸟币持有量，对应sum表。此表不�
 SELECT setval('"public"."coin_id_seq"', 36, true);
 SELECT setval('"public"."fulfil_id_seq"', 3, false);
 SELECT setval('"public"."info_id_seq"', 6, true);
-SELECT setval('"public"."news_id_seq"', 225, true);
+SELECT setval('"public"."news_id_seq"', 315, true);
 ALTER SEQUENCE "public"."news_id_seq1"
 OWNED BY "public"."news"."id";
 SELECT setval('"public"."news_id_seq1"', 2, false);
-SELECT setval('"public"."pay_id_seq"', 134, true);
+SELECT setval('"public"."pay_id_seq"', 137, true);
 SELECT setval('"public"."pic_id_seq"', 2, false);
 ALTER SEQUENCE "public"."repay_id_seq"
 OWNED BY "public"."repay"."id";
-SELECT setval('"public"."repay_id_seq"', 2, false);
-SELECT setval('"public"."req_id_seq"', 3, false);
+SELECT setval('"public"."repay_id_seq"', 2, true);
+SELECT setval('"public"."req_id_seq"', 38, true);
 SELECT setval('"public"."skill_id_seq"', 111, true);
 SELECT setval('"public"."snap_id_seq"', 23, true);
 SELECT setval('"public"."snap_set_id_seq"', 22, true);
@@ -652,6 +658,9 @@ ALTER TABLE "public"."info" ADD CONSTRAINT "info_pkey" PRIMARY KEY ("owner");
 -- ----------------------------
 -- Indexes structure for table news
 -- ----------------------------
+CREATE INDEX "IDX_news_table" ON "public"."news" USING btree (
+  "table" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+);
 CREATE INDEX "news_amount_idx" ON "public"."news" USING btree (
   "amount" "pg_catalog"."int8_ops" ASC NULLS LAST
 );
@@ -730,24 +739,21 @@ CREATE INDEX "repay_issuer_idx" ON "public"."repay" USING btree (
   "issuer" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
 );
 CREATE INDEX "repay_skill_id_idx" ON "public"."repay" USING btree (
-  "skill_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-CREATE INDEX "repay_trans_coin_bearer_idx" ON "public"."repay" USING btree (
-  "trans_coin" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
-  "bearer" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
-);
-CREATE INDEX "repay_trans_coin_idx" ON "public"."repay" USING btree (
-  "trans_coin" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
-);
-CREATE INDEX "repay_trans_coin_issuer_idx" ON "public"."repay" USING btree (
-  "trans_coin" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
-  "issuer" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+  "snap_id" "pg_catalog"."int8_ops" ASC NULLS LAST
 );
 
 -- ----------------------------
 -- Checks structure for table repay
 -- ----------------------------
 ALTER TABLE "public"."repay" ADD CONSTRAINT "repay_amount_check" CHECK ((amount >= 1));
+
+-- ----------------------------
+-- Rules structure for table repay
+-- ----------------------------
+CREATE RULE "rule_repay_update" AS ON UPDATE TO "public"."repay" DO INSTEAD NOTHING;;
+CREATE RULE "rule_repay_delete" AS ON DELETE TO "public"."repay" DO INSTEAD NOTHING;;
+COMMENT ON RULE "rule_repay_update" ON "public"."repay" IS '此表只可新建，不可删改。';
+COMMENT ON RULE "rule_repay_delete" ON "public"."repay" IS '此表只可新建，不可删改。';
 
 -- ----------------------------
 -- Primary Key structure for table repay
@@ -757,50 +763,40 @@ ALTER TABLE "public"."repay" ADD CONSTRAINT "repay_pkey" PRIMARY KEY ("id");
 -- ----------------------------
 -- Indexes structure for table req
 -- ----------------------------
-CREATE INDEX "req_bearer_addr_coin_id_idx" ON "public"."req" USING btree (
-  "bearer_addr" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
-  "coin_id" "pg_catalog"."int8_ops" ASC NULLS LAST
+CREATE INDEX "req_bearer_idx" ON "public"."req" USING btree (
+  "bearer" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
 );
-CREATE INDEX "req_bearer_addr_idx" ON "public"."req" USING btree (
-  "bearer_addr" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+CREATE INDEX "req_bearer_issuer_idx" ON "public"."req" USING btree (
+  "bearer" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
+  "issuer" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
 );
-CREATE INDEX "req_bearer_addr_issuer_id_idx" ON "public"."req" USING btree (
-  "bearer_addr" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
-  "issuer_id" "pg_catalog"."int8_ops" ASC NULLS LAST
+CREATE INDEX "req_bearer_issuer_state_idx" ON "public"."req" USING btree (
+  "bearer" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
+  "issuer" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
+  "state" "pg_catalog"."int2_ops" ASC NULLS LAST
 );
-CREATE INDEX "req_bearer_id_coin_id_idx" ON "public"."req" USING btree (
-  "bearer_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "coin_id" "pg_catalog"."int8_ops" ASC NULLS LAST
+CREATE INDEX "req_bearer_state_idx" ON "public"."req" USING btree (
+  "bearer" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
+  "state" "pg_catalog"."int2_ops" ASC NULLS LAST
 );
-CREATE INDEX "req_bearer_id_idx" ON "public"."req" USING btree (
-  "bearer_id" "pg_catalog"."int8_ops" ASC NULLS LAST
+CREATE INDEX "req_issuer_idx" ON "public"."req" USING btree (
+  "issuer" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
 );
-CREATE INDEX "req_bearer_id_issuer_id_idx" ON "public"."req" USING btree (
-  "bearer_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "issuer_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-CREATE INDEX "req_coin_id_idx" ON "public"."req" USING btree (
-  "coin_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-CREATE INDEX "req_issuer_addr_coin_id_idx" ON "public"."req" USING btree (
-  "issuer_addr" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
-  "coin_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-CREATE INDEX "req_issuer_addr_idx" ON "public"."req" USING btree (
-  "issuer_addr" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
-);
-CREATE INDEX "req_issuer_id_coin_id_idx" ON "public"."req" USING btree (
-  "issuer_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "coin_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-CREATE INDEX "req_issuer_id_idx" ON "public"."req" USING btree (
-  "issuer_id" "pg_catalog"."int8_ops" ASC NULLS LAST
+CREATE INDEX "req_issuer_state_idx" ON "public"."req" USING btree (
+  "issuer" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
+  "state" "pg_catalog"."int2_ops" ASC NULLS LAST
 );
 
 -- ----------------------------
 -- Checks structure for table req
 -- ----------------------------
 ALTER TABLE "public"."req" ADD CONSTRAINT "req_amount_check" CHECK ((amount >= 1));
+
+-- ----------------------------
+-- Rules structure for table req
+-- ----------------------------
+CREATE RULE "rule_req_delete" AS ON DELETE TO "public"."req" DO INSTEAD NOTHING;;
+COMMENT ON RULE "rule_req_delete" ON "public"."req" IS '此表不可删除';
 
 -- ----------------------------
 -- Primary Key structure for table req

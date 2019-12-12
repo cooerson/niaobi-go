@@ -37,6 +37,7 @@ func BindForm() {
 	newSkill()
 	//pay
 	newPay()
+	newReq()
 }
 
 func register() {
@@ -139,6 +140,24 @@ func newPay() {
 		//---check struct---
 		err = validate.Struct(&form)
 		errors := NewValidatorErrorDetail(trans, err, form.NewPayFieldTrans())
+		e.CheckError(ctx, err, iris.StatusNotAcceptable, config.Public.Err.E1001, errors)
+
+		err = util.Strings(&form)
+		e.CheckError(ctx, err, iris.StatusNotAcceptable, config.Public.Err.E1002, nil)
+		return
+	})
+}
+
+func newReq() {
+	hero.Register(func(ctx iris.Context) (form NewReqForm) {
+		e := new(CommonError)
+		// ---bind form---
+		err := ctx.ReadJSON(&form)
+		e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1000, nil)
+
+		//---check struct---
+		err = validate.Struct(&form)
+		errors := NewValidatorErrorDetail(trans, err, form.NewReqFieldTrans())
 		e.CheckError(ctx, err, iris.StatusNotAcceptable, config.Public.Err.E1001, errors)
 
 		err = util.Strings(&form)

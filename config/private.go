@@ -32,6 +32,13 @@ const (
 	RMBExrIrisKey = "iris_rmbexr"
 	//translocks
 	TxLocksIrisKey = "iris_tx_locks"
+	//beanstalk tube为不同延迟队列的分组
+	BeanstalkURI     = "localhost:11300"
+	BeanstalkTubeReq = "req"
+	//NewsTableName
+	NewsTableReq   = "req"
+	NewsTablePay   = "pay"
+	NewsTableRePay = "repay"
 )
 
 //PQInfo pq连接字符串

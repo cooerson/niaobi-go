@@ -67,6 +67,15 @@ type (
 			SkillPicScaleMax      float64
 		}
 
+		Req struct {
+			ReqBearer10 string
+			ReqIssuer10 string
+			ReqBearer11 string
+			ReqIssuer11 string
+			ReqBearer22 string
+			ReqIssuer22 string
+		}
+
 		Err struct {
 			E1000 string
 			E1001 string
@@ -96,6 +105,9 @@ type (
 			E1025 string
 			E1026 string
 			E1027 string
+			E1028 string
+			E1029 string
+			E1030 string
 		}
 
 		Tips struct {

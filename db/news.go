@@ -9,6 +9,8 @@ type News struct {
 	Desc    string    `json:"desc" xorm:"not null TEXT"`               //主要内容
 	Created time.Time `json:"created" xorm:"not null created"`
 
-	Amount int64  `json:"amount,omitempty" xorm:"index BIGINT"`     //交易金额
-	Buddy  string `json:"buddy,omitempty" xorm:"index VARCHAR(20)"` //交易对象的鸟币号
+	Amount   int64  `json:"amount,omitempty" xorm:"index BIGINT"`         //交易金额
+	Buddy    string `json:"buddy,omitempty" xorm:"index VARCHAR(20)"`     //交易对象的鸟币号
+	Table    string `json:"table,omitempty" xorm:"index VARCHAR(20)"`     //相关数据库表名
+	SourceID uint64 `json:"sourceID,omitempty" xorm:"BIGINT 'source_id'"` //相关记录ID
 }

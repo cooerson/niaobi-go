@@ -1,8 +1,7 @@
 # 部署注意事项
 
-- 部署时 安装nginx，把静态网站先部署到nginx
-- 部署时 安装mongodb，必须添加用户名和密码 
-- 部署时 安装golang和vips库
+- 部署时 安装golang
+- 部署时 安装beanstalkd https://github.com/beanstalkd/beanstalkd
 - 部署时 修改配置文件:config.toml和private.go
 
 - 更新鸟币汇率，每月定时
@@ -20,7 +19,14 @@ HostName x.x.x.x #改成你自己的服务器地址
 User xxx #改成你的服务器用户名称
 # ===========================================
 
-
+# linux
+sudo apt-get install beanstalkd
+#后台运行
+beanstalkd & 
+# mac
+brew install beanstalk
+beanstalkd
+# gui https://github.com/xuri/aurora
 
 # ====== nginx配置 ===ubuntu16.04部署nginx1.17.3、openssl1.1.1===========
 

@@ -7,6 +7,9 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"time"
+
+	"github.com/kr/beanstalk"
 
 	"github.com/go-xorm/xorm"
 	"github.com/kataras/iris"
@@ -168,7 +171,7 @@ func NewPay(ctx iris.Context, form model.NewPayForm) {
 			snapSetValue += skills[i].Price
 			//是否需要新建snap记录。若不存在可以提前插入数据库，不用加入到事务
 			snap := db.Snap{SkillID: skills[i].ID}
-			has, err := pq.Get(&snap)
+			has, err := pq.Cols("id").Get(&snap)
 			checkDBErr(err)
 			if has == false {
 				//新建snap
@@ -229,7 +232,7 @@ func NewPay(ctx iris.Context, form model.NewPayForm) {
 		receiverSubSumsToUpdate = append(receiverSubSumsToUpdate, &receiverSubSum)
 	} else if state == 3 {
 		//非血盟转手，持有人的subsum一定已经存在
-		//查询持有人所拥有的某个鸟币的所有版本。注意：兑现时仅可兑现所拥有的鸟币中最早版本之后的所有技能
+		//查询持有人所拥有的某个鸟币的所有版本。注意：兑现时仅可兑现所拥有的鸟币版本或最新版本的技能
 		limit := 10 //每次获取10条
 		start := 0
 		breakNow := false
@@ -401,7 +404,118 @@ func NewPay(ctx iris.Context, form model.NewPayForm) {
 
 	ctx.JSON(&model.UpdateRes{Ok: true})
 
-	//在后台更新鸟币信用和个人统计，coin表
+	//在后台更新coin表的鸟币信用和个人统计
+	go func() {
+
+	}()
+}
+
+//NewReq 兑现鸟币请求
+func NewReq(ctx iris.Context, form model.NewReqForm) {
+	e := new(model.CommonError)
+	pq := GetPQ(ctx)
+	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
+
+	//不能自我兑现
+	if form.Issuer == coinName {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1028)
+	}
+
+	var checkDBErr = func(err error) {
+		if err != nil {
+			util.LogDebugAll(err)
+		}
+		e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
+	}
+
+	//检查收款人是否存在
+	exist, err := pq.Exist(&db.Coin{Name: form.Issuer})
+	checkDBErr(err)
+	if exist == false {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1018)
+	}
+
+	//检查拥有的鸟币是否足够
+	sum := db.Sum{Bearer: coinName, Coin: form.Issuer, IsMarker: form.IsMarker}
+	has, err := pq.UseBool().Get(&sum)
+	checkDBErr(err)
+	if has == false {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1004)
+	}
+	if sum.Sum < int64(form.Amount) {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1023)
+	}
+
+	// //2小时内只能向同一用户请求一次
+	// r := db.Req{Closed: false, Issuer: form.Issuer, Bearer: coinName, State: 10}
+	// has, err = pq.UseBool().Cols("created").Desc("created").Get(&r)
+	// checkDBErr(err)
+	// if has == true {
+	// 	if r.Created.Add(time.Hour * 2).After(time.Now()) {
+	// 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1029)
+	// 	}
+	// }
+
+	//数据库事务
+	//处理req表、news表/info表
+	_, err = pq.Transaction(func(session *xorm.Session) (interface{}, error) {
+		//req
+		req := db.Req{State: 10, Bearer: coinName, Issuer: form.Issuer, IsMarker: form.IsMarker, SnapID: form.SnapID, Amount: form.Amount}
+		_, err := session.InsertOne(&req)
+		if err != nil {
+			return nil, err
+		}
+		byteReq, err := json.Marshal(req)
+
+		//加入延时tube，超时未接受的请求在main/jobReqCheck()中处理
+		conn, err := beanstalk.Dial("tcp", config.BeanstalkURI)
+		tube := &beanstalk.Tube{Conn: conn, Name: config.BeanstalkTubeReq}
+		/**
+		delay is time to wait before putting the job in
+		the ready queue. The job will be in the "delayed" state during this time.
+
+		ttr -- time to run -- is time to allow a worker
+		to run this job. This time is counted from the moment a worker reserves
+		this job. If the worker does not delete, release, or bury the job within
+		ttr time, the job will time out and the server will release the job.
+		*/
+		//2小时后检查是否接受，ttr为1秒（数据库操作通常只需要十几毫秒）
+		_, err = tube.Put(byteReq, 0, 15*time.Second, 1*time.Second)
+		if err != nil {
+			return nil, err
+		}
+
+		//news
+		tip1 := config.Public.Req.ReqBearer10 //请求方提示
+		tip2 := config.Public.Req.ReqIssuer10 //执行方提示
+		if form.IsMarker {
+			tip1 = config.Public.Req.ReqBearer11 //请求方提示（血盟）
+			tip2 = config.Public.Req.ReqIssuer11 //执行方提示（血盟）
+		}
+		bearerNews := db.News{Owner: coinName, Desc: tip1, Amount: int64(form.Amount), Buddy: form.Issuer, Table: config.NewsTableReq, SourceID: req.ID}
+		issuerNews := db.News{Owner: form.Issuer, Desc: tip2, Amount: int64(form.Amount), Buddy: coinName, Table: config.NewsTableReq, SourceID: req.ID}
+		_, err = session.Insert(&bearerNews, &issuerNews)
+		if err != nil {
+			return nil, err
+		}
+
+		//info
+		_, err = session.Where("owner = ?", coinName).UseBool().Update(&db.Info{HasReq: true})
+		if err != nil {
+			return nil, err
+		}
+		_, err = session.Where("owner = ?", form.Issuer).UseBool().Update(&db.Info{HasReq: true})
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, nil
+	})
+	checkDBErr(err)
+
+	ctx.JSON(&model.UpdateRes{Ok: true})
+
+	//在后台更新coin表的鸟币信用和个人统计
 	go func() {
 
 	}()

@@ -7,6 +7,11 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/gogf/gf/os/gtimer"
+
+	"github.com/kr/beanstalk"
 
 	"github.com/go-xorm/xorm"
 	"github.com/iris-contrib/middleware/jwt"
@@ -60,6 +65,7 @@ func main() {
 
 	//-----定时任务-----
 	startTimer()
+	jobReqCheck()
 
 	//-----路由-----
 	app := iris.New()
@@ -112,7 +118,7 @@ func main() {
 		trans.Use(jwtHandler.Serve)
 		{
 			trans.Post("/pay", transHandler, hero.Handler(controller.NewPay)) //支付
-			// trans.Post("/repay", transHandler, hero.Handler(controller.NewRepay)) //兑现
+			trans.Post("/req", transHandler, hero.Handler(controller.NewReq)) //兑现请求
 		}
 	}
 
@@ -132,7 +138,6 @@ func main() {
 		e.FinalError(ctx, iris.StatusRequestEntityTooLarge, config.Public.Err.E1014)
 	})
 	app.Run(iris.Addr("localhost:3001"))
-
 }
 
 //-----中间件-----
@@ -172,10 +177,24 @@ func picsSizeHandler(ctx iris.Context) {
 }
 
 //-----定时任务-----
-type rmbExrJob struct {
+func startTimer() {
+	c := cron.New()
+
+	//启动的时候执行一次，以后每隔5小时执行一次
+	job1 := jobRMBExr{}
+	job1.Run()
+	c.AddJob("@every 5h", job1)
+	// job2 := jobReqCheck{}
+	// job2.Run()
+	// c.AddJob("@every 5s", job2)
+
+	c.Start()
 }
 
-func (job rmbExrJob) Run() {
+type jobRMBExr struct {
+}
+
+func (jobRMBExr) Run() {
 	fmt.Println("[timer]Running RmbExrJob...")
 
 	//注意：不同国家需要使用各自国家的M2
@@ -214,13 +233,38 @@ func (job rmbExrJob) Run() {
 	}
 }
 
-func startTimer() {
-	c := cron.New()
+//超时未接受的兑现请求处理
+func jobReqCheck() {
+	conn, _ := beanstalk.Dial("tcp", config.BeanstalkURI)
+	tubeSet := beanstalk.NewTubeSet(conn, config.BeanstalkTubeReq)
+	//每隔10毫秒循环一次，一分钟可以响应6000条兑现请求
+	interval := 10 * time.Millisecond
+	gtimer.Add(interval, func() {
+		jobID, body, err := tubeSet.Reserve(0)
+		if err != nil {
+			return
+		}
 
-	//启动的时候执行一次，以后每隔5小时执行一次
-	job1 := rmbExrJob{}
-	job1.Run()
-	c.AddJob("@every 5h", job1)
+		req := db.Req{}
+		err = json.Unmarshal(body, &req)
+		if err != nil {
+			conn.Delete(jobID)
+			return
+		}
 
-	c.Start()
+		reqNow := db.Req{}
+		pq.ID(req.ID).Cols("state").Get(&reqNow)
+		if reqNow.State != 10 {
+			conn.Delete(jobID)
+			return
+		}
+
+		//数据库
+		news1 := db.News{Owner: req.Bearer, Desc: config.Public.Req.ReqBearer22, Amount: int64(req.Amount), Buddy: req.Issuer, Table: config.NewsTableReq, SourceID: req.ID}
+		news2 := db.News{Owner: req.Issuer, Desc: config.Public.Req.ReqIssuer22, Amount: int64(req.Amount), Buddy: req.Bearer, Table: config.NewsTableReq, SourceID: req.ID}
+		pq.Insert(&news1, &news2)
+		pq.ID(req.ID).Update(&db.Req{State: 22})
+
+		conn.Delete(jobID)
+	})
 }
