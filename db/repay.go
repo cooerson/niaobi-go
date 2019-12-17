@@ -10,6 +10,7 @@ import (
 //注意，兑现的技能，只能是技能的最新版本或发币时所用的版本
 type Repay struct {
 	ID       uint64    `json:"fulfilID" xorm:"pk BIGINT autoincr 'id'"`
+	ReqID    uint64    `json:"reqID" xorm:"not null index BIGINT 'req_id'"`                             //兑现请求ID
 	SnapID   uint64    `json:"snapID" xorm:"index BIGINT 'snap_id'"`                                    //实际兑现的技能快照ID
 	Bearer   string    `json:"bearer" xorm:"not null index index(repay_bearer_issuer_idx) VARCHAR(20)"` //持币者的鸟币号
 	Issuer   string    `json:"issuer" xorm:"not null index index(repay_bearer_issuer_idx) VARCHAR(20)"` //发币者的鸟币号

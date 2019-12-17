@@ -20,7 +20,7 @@ type SubSum struct {
 	Bearer    string    `json:"bearer" xorm:"not null index unique(sub_sum_bearer_coin_snap_set_id_idx) VARCHAR(20)"`             //持有者的鸟币号
 	Coin      string    `json:"coin" xorm:"not null index unique(sub_sum_bearer_coin_snap_set_id_idx) VARCHAR(20)"`               //持有的鸟币名称
 	SnapSetID uint64    `json:"snapSetID" xorm:"not null index unique(sub_sum_bearer_coin_snap_set_id_idx) BIGINT 'snap_set_id'"` //技能版本ID
-	SnapIDs   []uint64  `json:"snapIDs" xorm:"not null JSONB 'snap_ids'"`                                                         //SnapSetID下的技能快照snap_id的集合，倒序排列(snap_id为自增id)，如：[{"snap_id":"xxxx"},{"snap_id":"xxxx"}] //冗余字段，方便查询
+	SnapIDs   []uint64  `json:"snapIDs" xorm:"not null index JSONB 'snap_ids'"`                                                   //SnapSetID下的技能快照snap_id的集合，倒序排列(snap_id为自增id) //冗余字段，方便查询，gin索引
 	Sum       int64     `json:"sum" xorm:"not null default 0 index BIGINT"`                                                       //收入者sum+正数，支出者sum+负数
 	Updated   time.Time `json:"updated" xorm:"not null updated"`
 }

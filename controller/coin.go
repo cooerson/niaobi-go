@@ -352,8 +352,8 @@ func GetMyActivity(ctx iris.Context) {
 	}
 
 	if info.HasReq {
-		req := db.Req{}
-		counts, err := pq.Where("owner =", coinName).And("state < 5").Count(&req)
+		req := db.Req{Bearer: coinName, Closed: false}
+		counts, err := pq.Where("state < 20").UseBool("closed").Count(&req)
 		e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
 		info.TodoNum = uint32(counts) - info.DoneNum
 	}

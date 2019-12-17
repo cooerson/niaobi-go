@@ -14,6 +14,12 @@ type FieldTrans map[string]string
 //ErrorDetail 错误详情
 type ErrorDetail map[string]interface{}
 
+//ValidatorErrorCombine validator的错误返回格式
+type ValidatorErrorCombine struct {
+	Detail ErrorDetail
+	Err    error
+}
+
 //CommonError api统一的错误返回格式
 type CommonError struct {
 	Ok     bool        `json:"ok"`
@@ -23,9 +29,10 @@ type CommonError struct {
 }
 
 //NewValidatorErrorDetail 本地化后的validator的error detail
-func NewValidatorErrorDetail(trans ut.Translator, err error, fieldTrans FieldTrans) ErrorDetail {
+func NewValidatorErrorDetail(trans ut.Translator, err error, fieldTrans FieldTrans) ValidatorErrorCombine {
+	errReturn := ValidatorErrorCombine{}
 	if err == nil {
-		return nil
+		return errReturn
 	}
 	res := ErrorDetail{}
 	errs := err.(validator.ValidationErrors)
@@ -42,7 +49,9 @@ func NewValidatorErrorDetail(trans ut.Translator, err error, fieldTrans FieldTra
 		}
 	}
 	//返回错误信息
-	return res
+	errReturn.Err = err
+	errReturn.Detail = res
+	return errReturn
 }
 
 //CheckError iris 通用错误处理以及返回

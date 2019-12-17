@@ -117,8 +117,9 @@ func main() {
 	{
 		trans.Use(jwtHandler.Serve)
 		{
-			trans.Post("/pay", transHandler, hero.Handler(controller.NewPay)) //支付
-			trans.Post("/req", transHandler, hero.Handler(controller.NewReq)) //兑现请求
+			trans.Post("/pay", transHandler, hero.Handler(controller.NewPay))     //支付
+			trans.Post("/req", hero.Handler(controller.NewReq))                   //发送兑现请求
+			trans.Post("/repay", transHandler, hero.Handler(controller.NewRepay)) //兑现
 		}
 	}
 

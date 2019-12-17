@@ -16,6 +16,7 @@ type Snap struct {
 	Pics    []*Pic   `json:"pics,omitempty" xorm:"index JSONB"`               //技能图片大小参考config
 	Tags    []string `json:"tags,omitempty" xorm:"index JSONB"`               //类型如：技能、实物、服务、数字商品等，或者其他自定义标签
 	SkillID uint64   `json:"skillID" xorm:"not null index BIGINT 'skill_id'"` //不同备份版本的技能的共同ID
+	Version uint64   `json:"version" xorm:"not null BIGINT"`                  //同技能表的version
 }
 
 //SnapSet 技能快照组，对应snap_set表，标识了鸟币不同版本。此表只可新建，不可删改。
