@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thinkeridea/go-extend/exbytes"
-
 	"github.com/beanstalkd/go-beanstalk"
 	"github.com/go-xorm/xorm"
 	"github.com/gogf/gf/os/gtimer"
@@ -21,6 +19,7 @@ import (
 	"github.com/kataras/iris/middleware/recover"
 	_ "github.com/lib/pq"
 	"github.com/robfig/cron"
+	"github.com/thinkeridea/go-extend/exbytes"
 	"github.com/thinkeridea/go-extend/exstrings"
 
 	"reqing.org/ibispay/config"
@@ -37,7 +36,7 @@ var (
 )
 
 type rmbExrRes struct {
-	RmbExr float64 `json:"rmbExr"` //jwt token
+	RmbExr float64 `json:"rmbExr"`
 }
 
 func main() {
@@ -118,9 +117,9 @@ func main() {
 	{
 		skill.Use(jwtHandler.Serve)
 		{
-			skill.Post("/new", picsSizeHandler, transHandler, hero.Handler(controller.NewSkill)) //添加技能
-			skill.Put("/update", transHandler, hero.Handler(controller.UpdateSkill))             //更新技能
-			//todo 下架技能(transHandler)
+			skill.Post("/new", picsSizeHandler, transHandler, hero.Handler(controller.NewSkill))          //添加技能
+			skill.Put("/update", transHandler, hero.Handler(controller.UpdateSkill))                      //更新技能
+			skill.Put("/switch/{id:uint64 else 400}/{switch:bool}", transHandler, controller.SwitchSkill) //上架或下架技能，参数1、t、true等表示上架技能，0、f、false等表示下架技能
 			//todo 搜索技能，添加索引
 		}
 	}

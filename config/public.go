@@ -117,6 +117,12 @@ type (
 			E1037 string
 			E1038 string
 			E1039 string
+			E1040 string
+			E1041 string
+			E1042 string
+			E1043 string
+			E1044 string
+			E1045 string
 		}
 
 		Tips struct {
