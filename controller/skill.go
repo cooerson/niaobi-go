@@ -146,7 +146,7 @@ func UpdateSkill(ctx iris.Context, form model.UpdateSkillForm) {
 	//检查是否是本人账号更新
 	sid := form.SkillID
 	skill := db.Skill{ID: sid, Owner: coinName}
-	has, err := pq.Get(&skill)
+	has, err := pq.Cols("version").Get(&skill)
 	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
 	if has == false {
 		e.ReturnError(ctx, iris.StatusInternalServerError, config.Public.Err.E1037)

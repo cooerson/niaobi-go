@@ -9,13 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thinkeridea/go-extend/exbytes"
-
-	"github.com/kr/beanstalk"
-
 	"github.com/go-xorm/xorm"
 	"github.com/kataras/iris"
+	"github.com/kr/beanstalk"
 	"github.com/rs/xid"
+	"github.com/thinkeridea/go-extend/exbytes"
 	"reqing.org/ibispay/config"
 	"reqing.org/ibispay/db"
 	"reqing.org/ibispay/model"
@@ -158,9 +156,9 @@ func NewPay(ctx iris.Context, form model.NewPayForm) {
 		//---非血盟发行，不存在则新建snap、snap_set记录---
 		skillNum := 0
 		snapSetValue := uint64(0)
-		//获取payer所有最新技能
+		//获取payer所有上架的最新技能
 		skills := []db.Skill{}
-		err = pq.Where("owner = ?", payerName).Find(&skills)
+		err = pq.Where("owner = ? and is_open = ?", payerName, true).UseBool().Find(&skills)
 		checkDBErr(err)
 		util.LogDebugAll(skills)
 		skillNum = len(skills)
