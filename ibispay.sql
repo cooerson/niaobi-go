@@ -12,7 +12,7 @@
  Target Server Version : 110005
  File Encoding         : 65001
 
- Date: 11/01/2020 00:40:08
+ Date: 15/01/2020 15:35:26
 */
 
 
@@ -441,7 +441,8 @@ CREATE TABLE "public"."skill" (
   "created" timestamp(6) NOT NULL,
   "updated" timestamp(6),
   "deleted" timestamp(6),
-  "version" int8 NOT NULL DEFAULT 1
+  "version" int8 NOT NULL DEFAULT 1,
+  "is_open" bool NOT NULL DEFAULT true
 )
 ;
 ALTER TABLE "public"."skill" OWNER TO "postgres";
@@ -452,6 +453,7 @@ COMMENT ON COLUMN "public"."skill"."price" IS '技能价格（鸟币数/单位�
 COMMENT ON COLUMN "public"."skill"."pics" IS '技能图片大小参考config';
 COMMENT ON COLUMN "public"."skill"."tags" IS '类型如：技能、实物、服务、数字商品等，或者其他自定义标签';
 COMMENT ON COLUMN "public"."skill"."version" IS '更新时自动加1';
+COMMENT ON COLUMN "public"."skill"."is_open" IS '上架或下架';
 COMMENT ON TABLE "public"."skill" IS 'Skill 最新技能（指自身天赋和任何对他人有用的东西），此表不可删除
 注意：发币是使用技能快照，而不是最新技能，每次更新skill后，在发币的时候就需要新建snap。';
 
@@ -554,23 +556,23 @@ COMMENT ON TABLE "public"."sum" IS '鸟币持有量，对应sum表。此表不�
 SELECT setval('"public"."coin_id_seq"', 36, true);
 SELECT setval('"public"."fulfil_id_seq"', 3, false);
 SELECT setval('"public"."info_id_seq"', 6, true);
-SELECT setval('"public"."news_id_seq"', 387, true);
+SELECT setval('"public"."news_id_seq"', 389, true);
 ALTER SEQUENCE "public"."news_id_seq1"
 OWNED BY "public"."news"."id";
 SELECT setval('"public"."news_id_seq1"', 2, false);
-SELECT setval('"public"."pay_id_seq"', 150, true);
+SELECT setval('"public"."pay_id_seq"', 151, true);
 SELECT setval('"public"."pic_id_seq"', 2, false);
 ALTER SEQUENCE "public"."repay_id_seq"
 OWNED BY "public"."repay"."id";
 SELECT setval('"public"."repay_id_seq"', 17, true);
 SELECT setval('"public"."req_id_seq"', 50, true);
-SELECT setval('"public"."skill_id_seq"', 126, true);
-SELECT setval('"public"."snap_id_seq"', 29, true);
-SELECT setval('"public"."snap_set_id_seq"', 27, true);
+SELECT setval('"public"."skill_id_seq"', 127, true);
+SELECT setval('"public"."snap_id_seq"', 38, true);
+SELECT setval('"public"."snap_set_id_seq"', 28, true);
 ALTER SEQUENCE "public"."sub_sum_id_seq"
 OWNED BY "public"."sub_sum"."id";
-SELECT setval('"public"."sub_sum_id_seq"', 52, true);
-SELECT setval('"public"."sum_id_seq"', 16, true);
+SELECT setval('"public"."sub_sum_id_seq"', 54, true);
+SELECT setval('"public"."sum_id_seq"', 18, true);
 SELECT setval('"public"."trans_id_seq"', 3, false);
 SELECT setval('"public"."user_id_seq"', 30, true);
 
@@ -846,6 +848,10 @@ CREATE UNIQUE INDEX "skill_id_owner_idx" ON "public"."skill" USING btree (
 CREATE INDEX "skill_owner_idx" ON "public"."skill" USING btree (
   "owner" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
 );
+CREATE INDEX "skill_owner_is_open_idx" ON "public"."skill" USING btree (
+  "owner" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
+  "is_open" "pg_catalog"."bool_ops" ASC NULLS LAST
+);
 CREATE UNIQUE INDEX "skill_owner_title_idx" ON "public"."skill" USING btree (
   "owner" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
   "title" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
@@ -874,8 +880,8 @@ ALTER TABLE "public"."skill" ADD CONSTRAINT "skill_price_check" CHECK ((price >=
 -- ----------------------------
 -- Rules structure for table skill
 -- ----------------------------
-CREATE RULE "skill_sum_delete" AS ON DELETE TO "public"."skill" DO INSTEAD NOTHING;;
-COMMENT ON RULE "skill_sum_delete" ON "public"."skill" IS '此表不可删除';
+CREATE RULE "rule_skill_delete" AS ON DELETE TO "public"."skill" DO INSTEAD NOTHING;;
+COMMENT ON RULE "rule_skill_delete" ON "public"."skill" IS '此表不可删除';
 
 -- ----------------------------
 -- Primary Key structure for table skill
