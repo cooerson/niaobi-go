@@ -117,9 +117,10 @@ func main() {
 	{
 		skill.Use(jwtHandler.Serve)
 		{
-			skill.Post("/new", picsSizeHandler, transHandler, hero.Handler(controller.NewSkill))          //添加技能
-			skill.Put("/update", transHandler, hero.Handler(controller.UpdateSkill))                      //更新技能
-			skill.Put("/switch/{id:uint64 else 400}/{switch:bool}", transHandler, controller.SwitchSkill) //上架或下架技能，参数1、t、true等表示上架技能，0、f、false等表示下架技能
+			skill.Post("/new", picsSizeHandler, transHandler, hero.Handler(controller.NewSkill))    //添加技能
+			skill.Put("/update", transHandler, hero.Handler(controller.UpdateSkill))                //更新技能
+			skill.Put("/open/{id:uint64 else 400}/{open:bool}", transHandler, controller.OpenSkill) //上架或下架技能，参数1、t、true等表示上架技能，0、f、false等表示下架技能
+			skill.Delete("/delete/{id:uint64 else 400}", transHandler, controller.DeleteSkill)      //删除技能，软删除
 			//todo 搜索技能，添加索引
 		}
 	}

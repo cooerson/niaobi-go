@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"io"
 	"os"
-	"time"
 
 	"golang.org/x/crypto/blake2b"
 
@@ -175,15 +174,51 @@ func UpdateSkill(ctx iris.Context, form model.UpdateSkillForm) {
 	ctx.JSON(&model.UpdateRes{Ok: true})
 }
 
-//SwitchSkill 上架下架技能，使用软删除
-func SwitchSkill(ctx iris.Context) {
+//OpenSkill 上架下架技能
+func OpenSkill(ctx iris.Context) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
 	lock := GetTxLocks(ctx)
 	sid := ctx.Params().GetUint64Default("id", 0)
-	ss, err := ctx.Params().GetBool("switch")
+	open, err := ctx.Params().GetBool("open")
 	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1000, nil)
+
+	//转账和技能不能同时处理
+	if lock.Locks[coinName] == true {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1019)
+	}
+	lock.Locks[coinName] = true
+	defer func() {
+		delete(lock.Locks, coinName)
+	}()
+
+	//检查是否是本人账号操作
+	skill := db.Skill{ID: sid, Owner: coinName}
+	has, err := pq.Cols("version").Get(&skill)
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
+	if has == false {
+		e.ReturnError(ctx, iris.StatusInternalServerError, config.Public.Err.E1037)
+	}
+
+	//上架下架
+	skill.IsOpen = open
+	affected, err := pq.UseBool().Update(&skill)
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
+	if affected == 0 {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1040)
+	}
+
+	ctx.JSON(&model.UpdateRes{Ok: true})
+}
+
+//DeleteSkill 删除技能
+func DeleteSkill(ctx iris.Context) {
+	e := new(model.CommonError)
+	pq := GetPQ(ctx)
+	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
+	lock := GetTxLocks(ctx)
+	sid := ctx.Params().GetUint64Default("id", 0)
 
 	//转账和技能不能同时处理
 	if lock.Locks[coinName] == true {
@@ -202,21 +237,11 @@ func SwitchSkill(ctx iris.Context) {
 		e.ReturnError(ctx, iris.StatusInternalServerError, config.Public.Err.E1037)
 	}
 
-	if ss == true {
-		//上架
-		skill = db.Skill{Deleted: time.Time{}}
-		affected, err := pq.ID(sid).Update(&skill)
-		e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
-		if affected == 0 {
-			e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1041)
-		}
-	} else {
-		//下架
-		affected, err := pq.Delete(&skill)
-		e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
-		if affected == 0 {
-			e.ReturnError(ctx, iris.StatusInternalServerError, config.Public.Err.E1040)
-		}
+	//删除
+	affected, err := pq.Delete(&skill)
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
+	if affected == 0 {
+		e.ReturnError(ctx, iris.StatusInternalServerError, config.Public.Err.E1041)
 	}
 
 	ctx.JSON(&model.UpdateRes{Ok: true})
