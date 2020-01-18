@@ -51,7 +51,6 @@ type ProfileRes struct {
 	Name     string `json:"name"`     //鸟币号，不可重复、不可修改、少于20个字符，可用于登录。统一格式化为去除首尾空格的、以字母开头的、仅包含字母(Unicode)数字短横线的全小写格式，中间空格以短横线替换。
 	SkillNum uint32 `json:"skillNum"` //当前可用的技能数
 	BreakNum uint32 `json:"breakNum"` //拒绝兑现的次数
-	Credit   uint16 `json:"credit"`   //目前的鸟币信用，默认为0，范围0-1000
 
 	Bio    string `json:"bio,omitempty"`    //技能简介，少于5000字
 	Avatar db.Pic `json:"avatar,omitempty"` //头像，大小参考config

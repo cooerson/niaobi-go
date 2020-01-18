@@ -404,10 +404,8 @@ func NewPay(ctx iris.Context, form model.NewPayForm) {
 
 	ctx.JSON(&model.UpdateRes{Ok: true})
 
-	//在后台更新coin表的鸟币信用和个人统计
-	go func() {
-
-	}()
+	//更新coin表的个人统计
+	UpdateInfo(pq, coinName)
 }
 
 //NewReq 兑现鸟币请求
@@ -516,10 +514,8 @@ func NewReq(ctx iris.Context, form model.NewReqForm) {
 
 	ctx.JSON(&model.UpdateRes{Ok: true})
 
-	//在后台更新coin表的鸟币信用和个人统计
-	go func() {
-
-	}()
+	//更新coin表的个人统计
+	UpdateInfo(pq, coinName)
 }
 
 //NewRepay 兑现鸟币（接受兑现请求）
@@ -773,8 +769,56 @@ func NewRepay(ctx iris.Context, form model.NewRepayForm) {
 
 	ctx.JSON(&model.UpdateRes{Ok: true})
 
-	//在后台更新coin表的鸟币信用和个人统计
-	go func() {
+	//更新coin表的个人统计
+	UpdateInfo(pq, coinName)
+}
 
-	}()
+//RejectReq 拒绝兑现请求
+func RejectReq(ctx iris.Context) {
+	e := new(model.CommonError)
+	pq := GetPQ(ctx)
+	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
+	reqID := ctx.Params().GetUint64Default("req", 0)
+
+	//检查是否是本人账号操作
+	req := db.Req{ID: reqID, Issuer: coinName}
+	has, err := pq.Exist(&req)
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
+	if has == false {
+		e.ReturnError(ctx, iris.StatusInternalServerError, config.Public.Err.E1033)
+	}
+
+	//修改状态
+	affected, err := pq.ID(reqID).Update(&db.Req{State: 21})
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
+	if affected == 0 {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1004)
+	}
+
+	ctx.JSON(&model.UpdateRes{Ok: true})
+
+	//更新coin表的个人统计
+	UpdateInfo(pq, coinName)
+}
+
+//UpdateInfo 更新用户数据
+func UpdateInfo(pq *xorm.Engine, coinName string) {
+	go func(pq *xorm.Engine, coinName string) {
+		//Issued 普通鸟币——当前发行量
+		sum := db.Sum{Bearer: coinName, Coin: coinName, IsMarker: false}
+		pq.UseBool().Get(&sum)
+
+		//Denied 普通鸟币——当前拒绝量
+		denied, _ := pq.Where("state > 20 and state < 30").UseBool().SumInt(&db.Req{Issuer: coinName, Closed: false, IsMarker: false}, "amount")
+
+		//BreakNum 超级鸟币——当前拒绝兑现的「次数」
+		breakNum, _ := pq.Where("state > 20 and state < 30").UseBool().Count(&db.Req{Issuer: coinName, Closed: false, IsMarker: true})
+
+		//SkillNum 当前可用的技能数
+		skillNum, _ := pq.UseBool().Count(&db.Skill{Owner: coinName, IsOpen: false})
+
+		//更新
+		coin := db.Coin{Issued: uint64(-sum.Sum), Denied: uint64(denied), BreakNum: uint32(breakNum), SkillNum: uint32(skillNum)}
+		pq.Where("name = ?", coinName).Cols("issued,denied,break_num,skill_num").Update(&coin)
+	}(pq, coinName)
 }

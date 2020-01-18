@@ -12,7 +12,7 @@
  Target Server Version : 110005
  File Encoding         : 65001
 
- Date: 15/01/2020 15:35:26
+ Date: 18/01/2020 20:34:35
 */
 
 
@@ -221,13 +221,9 @@ CREATE TABLE "public"."coin" (
   "bio" text COLLATE "pg_catalog"."default",
   "email" varchar(30) COLLATE "pg_catalog"."default",
   "avatar" jsonb,
-  "trans_in" int8 NOT NULL DEFAULT 0,
-  "trans_out" int8 NOT NULL DEFAULT 0,
   "skill_num" int4 NOT NULL DEFAULT 0,
   "issued" int8 NOT NULL DEFAULT 0,
-  "cashed" int8 NOT NULL DEFAULT 0,
   "denied" int8 NOT NULL DEFAULT 0,
-  "credit" int2 NOT NULL DEFAULT 0,
   "qrc" jsonb,
   "created" timestamp(6) NOT NULL,
   "updated" timestamp(6),
@@ -243,17 +239,15 @@ COMMENT ON COLUMN "public"."coin"."phone_cc" IS 'Country Code';
 COMMENT ON COLUMN "public"."coin"."bio" IS '技能简介，少于5000字符';
 COMMENT ON COLUMN "public"."coin"."email" IS '邮箱';
 COMMENT ON COLUMN "public"."coin"."avatar" IS '头像，大小参考config ';
-COMMENT ON COLUMN "public"."coin"."trans_in" IS '总收入（包含收款+回收）';
-COMMENT ON COLUMN "public"."coin"."trans_out" IS '总支出（包含发行+转手）   ';
 COMMENT ON COLUMN "public"."coin"."skill_num" IS '当前可用的技能数  ';
-COMMENT ON COLUMN "public"."coin"."issued" IS '发行量(承诺的鸟币总量)';
-COMMENT ON COLUMN "public"."coin"."cashed" IS '回收量(兑现的鸟币总量) ';
-COMMENT ON COLUMN "public"."coin"."denied" IS '拒绝量(拒绝兑现的鸟币总量)';
-COMMENT ON COLUMN "public"."coin"."credit" IS '目前的鸟币信用，默认为0，范围0-1000';
+COMMENT ON COLUMN "public"."coin"."issued" IS '普通鸟币——当前发行量';
+COMMENT ON COLUMN "public"."coin"."denied" IS '普通鸟币——当前拒绝量';
 COMMENT ON COLUMN "public"."coin"."qrc" IS '收款二维码（根据鸟币号生成），大小参考config';
-COMMENT ON COLUMN "public"."coin"."break_num" IS '拒绝兑现的次数';
-COMMENT ON TABLE "public"."coin" IS 'Coin 对应coin表，此表不可删除
-鸟币号=鸟币名称=用户名';
+COMMENT ON COLUMN "public"."coin"."break_num" IS '超级鸟币——当前拒绝兑现的「次数」';
+COMMENT ON TABLE "public"."coin" IS '//Coin 对应coin表，此表不可删除
+//鸟币号=鸟币名称=用户名
+//无需计算鸟币信用。3点：
+//1.鸟币本身是基于已经存在的信用关系 2.信用本身也是不可证伪的，证伪=怀疑，正好和信用的本质相反 3.信用由直觉产生，无逻辑。每一次交易都可能产生不同的信用关系。';
 
 -- ----------------------------
 -- Table structure for img
@@ -404,25 +398,23 @@ COMMENT ON COLUMN "public"."req"."issuer" IS '发行者的鸟币号';
 COMMENT ON COLUMN "public"."req"."is_marker" IS '是否是血盟，是则忽略skill_id';
 COMMENT ON COLUMN "public"."req"."amount" IS '兑现的鸟币数量，大于0的整数';
 COMMENT ON COLUMN "public"."req"."state" IS '兑现状态（兑现时需要发行者确认，默认2小时响应，超时自动视为拒绝)';
-COMMENT ON COLUMN "public"."req"."closed" IS '是否已关闭交易';
+COMMENT ON COLUMN "public"."req"."closed" IS '系统是否已自动关闭交易';
 COMMENT ON TABLE "public"."req" IS 'Req 兑现请求(request)，对应req表，2小时内只能向同一用户请求一次（未接受的情况下）。此表不可删除
 兑现状态 state：
-10.	请求方提示：已发送兑现请求，等待对方确认（2小时内未接受将影响其鸟币信用）
-   	执行方提示：收到新的兑现请求（请在2小时内确认，否则将影响鸟币信用）
-11.    请求方提示—血盟：已发送血盟兑现请求，等待对方确认（2小时内未接受，将影响其血盟失败次数）
-	执行方提示—血盟：收到新的血盟兑现请求（请在2小时内确认，否则将影响血盟失败次数）
-20.	请求方提示：鸟币已被成功回收（成功回收后，请求方显示3种状态："已兑现"、"兑现中(默认选中)"、"未兑现"按钮）
+10.	请求方提示：已发送兑现请求，等待对方确认（对方2小时未处理自动拒绝）
+   	执行方提示：收到新的兑现请求（请在2小时内确认）
+	请求方提示—血盟：已发送血盟兑现请求，等待对方确认（对方2小时未处理自动拒绝）
+	执行方提示—血盟：收到新的血盟兑现请求（请在2小时内确认）
+20.	请求方提示：鸟币已被成功回收，等待兑现中（请求方显示2个按钮："已兑现"、"未兑现"按钮）
    	执行方提示：鸟币已回收，尚未完成兑现
-21.	请求方提示：对方拒绝了兑现请求，鸟币信用受到影响
-	执行方提示：已拒绝了对方的请求，鸟币信用受到影响
-22.   请求方提示：兑现请求超时未接受，对方鸟币信用受到影响
-	执行方提示：由于超时，系统自动拒绝了对方的请求，鸟币信用受到影响
-23.   请求方提示：对方未兑现技能，已直接影响其鸟币信用(状态显示选中"未兑现")
-   	执行方提示：未兑现已影响鸟币信用，"重新兑现"即可立即恢复鸟币信用(点击"重新兑现"按钮后状态改为20"兑现中")，"关闭交易"则执行方不可进行任何操作
+21.	请求方提示：对方拒绝了兑现请求
+	执行方提示：已拒绝了对方的请求
+22.   请求方提示：兑现请求超时未接受
+	执行方提示：由于超时，系统自动拒绝了对方的请求
+23.	请求方提示：对方未兑现技能(请求方点击了"未兑现"按钮)
+   	执行方提示：未兑现，可选择"重新兑现"(兑现方点击"重新兑现"按钮后状态改为20"兑现中")
 31.	请求方提示：交易完成
 	执行方提示：交易完成
-32.	请求方提示：交易已关闭
-	执行方提示：交易已关闭
 33.	请求方提示：由于鸟币不足等原因，交易自动关闭
 	执行方提示：由于对方鸟币不足等原因，交易自动关闭';
 
@@ -556,11 +548,11 @@ COMMENT ON TABLE "public"."sum" IS '鸟币持有量，对应sum表。此表不�
 SELECT setval('"public"."coin_id_seq"', 36, true);
 SELECT setval('"public"."fulfil_id_seq"', 3, false);
 SELECT setval('"public"."info_id_seq"', 6, true);
-SELECT setval('"public"."news_id_seq"', 389, true);
+SELECT setval('"public"."news_id_seq"', 393, true);
 ALTER SEQUENCE "public"."news_id_seq1"
 OWNED BY "public"."news"."id";
 SELECT setval('"public"."news_id_seq1"', 2, false);
-SELECT setval('"public"."pay_id_seq"', 151, true);
+SELECT setval('"public"."pay_id_seq"', 153, true);
 SELECT setval('"public"."pic_id_seq"', 2, false);
 ALTER SEQUENCE "public"."repay_id_seq"
 OWNED BY "public"."repay"."id";
@@ -579,12 +571,6 @@ SELECT setval('"public"."user_id_seq"', 30, true);
 -- ----------------------------
 -- Indexes structure for table coin
 -- ----------------------------
-CREATE INDEX "coin_cashed_idx" ON "public"."coin" USING btree (
-  "cashed" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-CREATE INDEX "coin_credit_idx" ON "public"."coin" USING btree (
-  "credit" "pg_catalog"."int2_ops" ASC NULLS LAST
-);
 CREATE INDEX "coin_denied_idx" ON "public"."coin" USING btree (
   "denied" "pg_catalog"."int8_ops" ASC NULLS LAST
 );
@@ -599,12 +585,6 @@ CREATE UNIQUE INDEX "coin_phone_pwd_idx" ON "public"."coin" USING btree (
   "phone" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
   "pwd" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
 );
-CREATE INDEX "coin_trans_in_idx" ON "public"."coin" USING btree (
-  "trans_in" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-CREATE INDEX "coin_trans_out_idx" ON "public"."coin" USING btree (
-  "trans_out" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
 
 -- ----------------------------
 -- Uniques structure for table coin
@@ -615,13 +595,8 @@ ALTER TABLE "public"."coin" ADD CONSTRAINT "coin_name_key" UNIQUE ("name");
 -- ----------------------------
 -- Checks structure for table coin
 -- ----------------------------
-ALTER TABLE "public"."coin" ADD CONSTRAINT "user_credit_check" CHECK ((credit >= 0));
 ALTER TABLE "public"."coin" ADD CONSTRAINT "user_issued_check" CHECK ((issued >= 0));
 ALTER TABLE "public"."coin" ADD CONSTRAINT "user_skill_num_check" CHECK ((skill_num >= 0));
-ALTER TABLE "public"."coin" ADD CONSTRAINT "user_credit_check1" CHECK ((credit < 1000));
-ALTER TABLE "public"."coin" ADD CONSTRAINT "coin_trans_in_check" CHECK ((trans_in >= 0));
-ALTER TABLE "public"."coin" ADD CONSTRAINT "coin_trans_out_check" CHECK ((trans_out >= 0));
-ALTER TABLE "public"."coin" ADD CONSTRAINT "user_fulfiled_check" CHECK ((cashed >= 0));
 ALTER TABLE "public"."coin" ADD CONSTRAINT "user_denied_check" CHECK ((denied >= 0));
 ALTER TABLE "public"."coin" ADD CONSTRAINT "coin_break_num_check" CHECK ((break_num >= 0));
 

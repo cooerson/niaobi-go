@@ -30,8 +30,8 @@ import (
 )
 
 var (
-	pq      *xorm.Engine
 	rmbExr  float64
+	pq      *xorm.Engine
 	txLocks *db.TransLocks
 )
 
@@ -104,24 +104,15 @@ func main() {
 		}
 	}
 
-	img := app.Party("img")
-	{
-		img.Use(jwtHandler.Serve)
-		{
-			img.Get("/exist/{hash:string range(64,64) else 400}", controller.CheckPicHash) //检查图片是否存在
-			img.Post("/new", picSizeHandler, controller.NewPic)                            //上传图片
-		}
-	}
-
 	skill := app.Party("skill")
 	{
 		skill.Use(jwtHandler.Serve)
 		{
 			skill.Post("/new", picsSizeHandler, transHandler, hero.Handler(controller.NewSkill))    //添加技能
 			skill.Put("/update", transHandler, hero.Handler(controller.UpdateSkill))                //更新技能
-			skill.Put("/open/{id:uint64 else 400}/{open:bool}", transHandler, controller.OpenSkill) //上架或下架技能，参数1、t、true等表示上架技能，0、f、false等表示下架技能
+			skill.Put("/open/{id:uint64 else 400}/{open:bool}", transHandler, controller.OpenSkill) //上架或下架技能。open参数：1、t、true等表示上架技能，0、f、false等表示下架技能
 			skill.Delete("/delete/{id:uint64 else 400}", transHandler, controller.DeleteSkill)      //删除技能，软删除
-			//todo 搜索技能，添加索引
+			//todo 搜索技能
 		}
 	}
 
@@ -132,6 +123,16 @@ func main() {
 			trans.Post("/pay", transHandler, hero.Handler(controller.NewPay))     //支付
 			trans.Post("/req", hero.Handler(controller.NewReq))                   //发送兑现请求
 			trans.Post("/repay", transHandler, hero.Handler(controller.NewRepay)) //兑现
+			trans.Put("/reject/{req:uint64 else 400}", controller.RejectReq)      //拒绝兑现请求
+		}
+	}
+
+	img := app.Party("img")
+	{
+		img.Use(jwtHandler.Serve)
+		{
+			img.Get("/exist/{hash:string range(64,64) else 400}", controller.CheckPicHash) //检查图片是否存在
+			img.Post("/new", picSizeHandler, controller.NewPic)                            //上传图片
 		}
 	}
 
