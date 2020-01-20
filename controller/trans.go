@@ -782,14 +782,86 @@ func RejectReq(ctx iris.Context) {
 
 	//检查是否是本人账号操作
 	req := db.Req{ID: reqID, Issuer: coinName}
-	has, err := pq.Exist(&req)
+	has, err := pq.Get(&req)
 	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
 	if has == false {
 		e.ReturnError(ctx, iris.StatusInternalServerError, config.Public.Err.E1033)
 	}
 
+	//大于30则不可操作
+	if req.State >= 30 {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1042)
+	}
 	//修改状态
 	affected, err := pq.ID(reqID).Update(&db.Req{State: 21})
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
+	if affected == 0 {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1004)
+	}
+
+	ctx.JSON(&model.UpdateRes{Ok: true})
+
+	//更新coin表的个人统计
+	UpdateInfo(pq, coinName)
+}
+
+//UnCash 对方未兑现请求
+func UnCash(ctx iris.Context) {
+	e := new(model.CommonError)
+	pq := GetPQ(ctx)
+	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
+	reqID := ctx.Params().GetUint64Default("req", 0)
+
+	//检查是否是本人账号操作
+	req := db.Req{ID: reqID, Bearer: coinName}
+	has, err := pq.Get(&req)
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
+	if has == false {
+		e.ReturnError(ctx, iris.StatusInternalServerError, config.Public.Err.E1033)
+	}
+
+	//大于30则不可操作
+	if req.State >= 30 {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1042)
+	}
+	//修改状态
+	affected, err := pq.ID(reqID).Update(&db.Req{State: 23})
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
+	if affected == 0 {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1004)
+	}
+
+	ctx.JSON(&model.UpdateRes{Ok: true})
+
+	//更新coin表的个人统计
+	UpdateInfo(pq, coinName)
+}
+
+//Redo 重新执行请求，两次重做的间隔至少大于3天
+func Redo(ctx iris.Context) {
+	e := new(model.CommonError)
+	pq := GetPQ(ctx)
+	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
+	reqID := ctx.Params().GetUint64Default("req", 0)
+
+	//检查是否是本人账号操作
+	req := db.Req{ID: reqID, Issuer: coinName}
+	has, err := pq.Get(&req)
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
+	if has == false {
+		e.ReturnError(ctx, iris.StatusInternalServerError, config.Public.Err.E1033)
+	}
+
+	//大于30则不可操作
+	if req.State >= 30 {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1042)
+	}
+	//两次重做的间隔至少大于3天
+	if (req.State >= 21 && req.State <= 23) && req.Updated.AddDate(0, 0, 3).After(time.Now()) {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1043)
+	}
+	//修改状态
+	affected, err := pq.ID(reqID).Update(&db.Req{State: 20})
 	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
 	if affected == 0 {
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1004)

@@ -122,8 +122,10 @@ func main() {
 		{
 			trans.Post("/pay", transHandler, hero.Handler(controller.NewPay))     //支付
 			trans.Post("/req", hero.Handler(controller.NewReq))                   //发送兑现请求
-			trans.Post("/repay", transHandler, hero.Handler(controller.NewRepay)) //兑现
+			trans.Post("/repay", transHandler, hero.Handler(controller.NewRepay)) //接受兑现请求
 			trans.Put("/reject/{req:uint64 else 400}", controller.RejectReq)      //拒绝兑现请求
+			trans.Put("/uncash/{req:uint64 else 400}", controller.UnCash)         //标记未兑现请求
+			trans.Put("/redo/{req:uint64 else 400}", controller.Redo)             //重新执行请求（拒绝后）
 		}
 	}
 
