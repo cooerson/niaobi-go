@@ -546,7 +546,7 @@ func NewRepay(ctx iris.Context, form model.NewRepayForm) {
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1032)
 	}
 
-	//检查要请求是否存在和匹配
+	//检查是否存在匹配的请求
 	req := db.Req{ID: form.ReqID, Closed: false, State: 10}
 	exist, err = pq.UseBool().Get(&req)
 	checkDBErr(err)
@@ -554,7 +554,7 @@ func NewRepay(ctx iris.Context, form model.NewRepayForm) {
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1033)
 	}
 	if req.SnapID != form.SnapID {
-		pq.ID(form.ReqID).UseBool("closed").Update(&db.Req{Closed: true, State: 33})
+		pq.ID(form.ReqID).UseBool("closed").Update(&db.Req{Closed: true, State: 31})
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1035)
 	}
 
@@ -593,7 +593,7 @@ func NewRepay(ctx iris.Context, form model.NewRepayForm) {
 	//检查持有人是否持有足够的鸟币
 	if bearerSum.Sum < int64(form.Amount) {
 		//关闭交易
-		pq.ID(form.ReqID).UseBool("closed").Update(&db.Req{Closed: true, State: 33})
+		pq.ID(form.ReqID).UseBool("closed").Update(&db.Req{Closed: true, State: 31})
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1023)
 	}
 	bearerSum.Sum += bearerAdd
@@ -778,6 +778,7 @@ func RejectReq(ctx iris.Context) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
+	lock := GetTxLocks(ctx)
 	reqID := ctx.Params().GetUint64Default("req", 0)
 
 	//检查是否是本人账号操作
@@ -788,10 +789,25 @@ func RejectReq(ctx iris.Context) {
 		e.ReturnError(ctx, iris.StatusInternalServerError, config.Public.Err.E1033)
 	}
 
-	//大于30则不可操作
-	if req.State >= 30 {
-		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1042)
+	//只可在状态为10时进行此项操作
+	if req.State != 10 {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1044)
 	}
+
+	//========锁住双方的交易事务直到转账结束==========
+	bearer := req.Bearer
+	issuer := req.Issuer
+	if lock.Locks[issuer] == true || lock.Locks[bearer] == true {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1019)
+		return
+	}
+	lock.Locks[issuer] = true
+	lock.Locks[bearer] = true
+	defer func() {
+		delete(lock.Locks, issuer)
+		delete(lock.Locks, bearer)
+	}()
+
 	//修改状态
 	affected, err := pq.ID(reqID).Update(&db.Req{State: 21})
 	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
@@ -820,9 +836,9 @@ func UnCash(ctx iris.Context) {
 		e.ReturnError(ctx, iris.StatusInternalServerError, config.Public.Err.E1033)
 	}
 
-	//大于30则不可操作
-	if req.State >= 30 {
-		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1042)
+	//只可在状态为20点击「对方未兑现」
+	if req.State != 20 {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1044)
 	}
 	//修改状态
 	affected, err := pq.ID(reqID).Update(&db.Req{State: 23})
@@ -852,16 +868,48 @@ func Redo(ctx iris.Context) {
 		e.ReturnError(ctx, iris.StatusInternalServerError, config.Public.Err.E1033)
 	}
 
-	//大于30则不可操作
-	if req.State >= 30 {
-		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1042)
+	//仅可在21、22、23情况下执行
+	if req.State <= 20 || req.State >= 30 {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1044)
 	}
-	//两次重做的间隔至少大于3天
-	if (req.State >= 21 && req.State <= 23) && req.Updated.AddDate(0, 0, 3).After(time.Now()) {
+	//两次重做的间隔「至少」大于3天
+	if req.State == 23 && req.Updated.AddDate(0, 0, 3).After(time.Now()) {
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1043)
 	}
 	//修改状态
 	affected, err := pq.ID(reqID).Update(&db.Req{State: 20})
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
+	if affected == 0 {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1004)
+	}
+
+	ctx.JSON(&model.UpdateRes{Ok: true})
+
+	//更新coin表的个人统计
+	UpdateInfo(pq, coinName)
+}
+
+//Done 完成交易标记（对方完成兑现）
+func Done(ctx iris.Context) {
+	e := new(model.CommonError)
+	pq := GetPQ(ctx)
+	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
+	reqID := ctx.Params().GetUint64Default("req", 0)
+
+	//检查是否是本人账号操作
+	req := db.Req{ID: reqID, Bearer: coinName}
+	has, err := pq.Get(&req)
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
+	if has == false {
+		e.ReturnError(ctx, iris.StatusInternalServerError, config.Public.Err.E1033)
+	}
+
+	//仅可在20、21、22、23情况下执行
+	if req.State < 20 || req.State >= 30 {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1044)
+	}
+	//修改状态
+	affected, err := pq.ID(reqID).Update(&db.Req{State: 30})
 	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
 	if affected == 0 {
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1004)

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -120,12 +119,13 @@ func main() {
 	{
 		trans.Use(jwtHandler.Serve)
 		{
-			trans.Post("/pay", transHandler, hero.Handler(controller.NewPay))     //支付
-			trans.Post("/req", hero.Handler(controller.NewReq))                   //发送兑现请求
-			trans.Post("/repay", transHandler, hero.Handler(controller.NewRepay)) //接受兑现请求
-			trans.Put("/reject/{req:uint64 else 400}", controller.RejectReq)      //拒绝兑现请求
-			trans.Put("/uncash/{req:uint64 else 400}", controller.UnCash)         //标记未兑现请求
-			trans.Put("/redo/{req:uint64 else 400}", controller.Redo)             //重新执行请求（拒绝后）
+			trans.Post("/pay", transHandler, hero.Handler(controller.NewPay))              //支付
+			trans.Post("/req", hero.Handler(controller.NewReq))                            //发送兑现请求
+			trans.Post("/repay", transHandler, hero.Handler(controller.NewRepay))          //接受兑现请求
+			trans.Put("/reject/{req:uint64 else 400}", transHandler, controller.RejectReq) //拒绝兑现请求
+			trans.Put("/uncash/{req:uint64 else 400}", controller.UnCash)                  //标记未兑现请求
+			trans.Put("/redo/{req:uint64 else 400}", controller.Redo)                      //重新执行请求（拒绝后）
+			trans.Put("/done/{req:uint64 else 400}", controller.Done)                      //标记完成交易
 		}
 	}
 
@@ -230,7 +230,7 @@ func (jobRMBExr) Run() {
 		return
 	}
 
-	//统一写法，使用流式读取代替ioutil.ReadAll
+	//流式读取数据
 	str := bytes.NewBufferString("")
 	err = util.ReadReader(resp.Body, func(block []byte) {
 		str.WriteString(exbytes.ToString(block))
@@ -261,11 +261,6 @@ func (jobRMBExr) Run() {
 	if rmbExr < config.Public.Exr.RmbExr {
 		rmbExr = config.Public.Exr.RmbExr
 	}
-}
-func streamToString(stream io.Reader) string {
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(stream)
-	return buf.String()
 }
 
 //超时未接受的兑现请求处理
