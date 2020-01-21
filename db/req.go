@@ -25,7 +25,7 @@ import (
 	执行方提示：由于对方鸟币不足等原因，交易自动关闭
 */
 type Req struct {
-	ID       uint64    `json:"reqID" xorm:"pk BIGINT autoincr 'id'"`
+	ID       uint64    `json:"reqID" xorm:"not null default nextval('req_id_seq'::regclass) pk BIGINT autoincr 'id'"`
 	SnapID   uint64    `json:"snapID" xorm:"not null BIGINT 'snap_id'"`                                                                                              //具体要兑现的技能ID
 	Bearer   string    `json:"bearer" xorm:"not null index index(req_bearer_issuer_idx) index(req_bearer_issuer_state_idx) index(req_bearer_state_idx) VARCHAR(20)"` //持有者的鸟币号
 	Issuer   string    `json:"issuer" xorm:"not null index(req_bearer_issuer_idx) index(req_bearer_issuer_state_idx) index index(req_issuer_state_idx) VARCHAR(20)"` //发行者的鸟币号

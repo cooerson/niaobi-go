@@ -4,7 +4,7 @@ import "time"
 
 //News 用户消息，对应news表
 type News struct {
-	ID      uint64    `json:"newsID" xorm:"pk BIGINT autoincr 'id'"`
+	ID      uint64    `json:"newsID" xorm:"not null default nextval('news_id_seq'::regclass) pk BIGINT autoincr 'id'"`
 	Owner   string    `json:"owner" xorm:"not null index VARCHAR(20)"` //接受消息的鸟币号
 	Desc    string    `json:"desc" xorm:"not null TEXT"`               //主要内容
 	Created time.Time `json:"created" xorm:"not null created"`

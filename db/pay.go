@@ -8,7 +8,7 @@ import (
 //注意：支付表=鸟币发行记录+鸟币转手记录，兑现表=鸟币兑现记录。所有交易=发行+转手+兑现。
 //marker血盟，歃血为盟之意，也称作超级鸟币，承诺为持有者(bearer)做任何一件事。
 type Pay struct {
-	ID        uint64    `json:"payID" xorm:"pk BIGINT autoincr 'id'"`
+	ID        uint64    `json:"payID" xorm:"not null default nextval('pay_id_seq'::regclass) pk BIGINT autoincr 'id'"`
 	Amount    uint64    `json:"amount" xorm:"not null BIGINT"`                                                                                  //转账数额，大于0的整数
 	TransCoin string    `json:"transCoin" xorm:"not null index(pay_payer_trans_coin_idx) index(pay_receiver_trans_coin_idx) index VARCHAR(20)"` //交易的鸟币名
 	Receiver  string    `json:"receiver" xorm:"not null index index(pay_receiver_payer_idx) index(pay_receiver_trans_coin_idx) VARCHAR(20)"`    //收款方鸟币号

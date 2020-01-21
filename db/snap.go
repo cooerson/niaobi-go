@@ -6,7 +6,7 @@ import (
 
 //Snap 技能快照，对应snap表。此表只可新建，不可删改。
 type Snap struct {
-	ID      uint64    `json:"snapID" xorm:"pk BIGINT autoincr 'id'"`
+	ID      uint64    `json:"snapID" xorm:"not null default nextval('snap_id_seq'::regclass) pk BIGINT autoincr 'id'"`
 	Created time.Time `json:"created" xorm:"not null created"`
 
 	Owner   string   `json:"owner" xorm:"not null index VARCHAR(20)"`         //鸟币号，必填
@@ -21,7 +21,7 @@ type Snap struct {
 
 //SnapSet 技能快照组，对应snap_set表，标识了鸟币不同版本。此表只可新建，不可删改。
 type SnapSet struct {
-	ID      uint64    `json:"snapSetID" xorm:"pk BIGINT autoincr 'id'"`
+	ID      uint64    `json:"snapSetID" xorm:"not null default nextval('snap_set_id_seq'::regclass) pk BIGINT autoincr 'id'"`
 	Created time.Time `json:"created" xorm:"not null created"`
 
 	Owner   string   `json:"owner" xorm:"not null index VARCHAR(20)"`      //鸟币号，必填

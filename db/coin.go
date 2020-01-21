@@ -9,7 +9,7 @@ import (
 //无需计算鸟币信用。3点：
 //1.鸟币本身是基于已经存在的信用关系 2.信用本身也是不可证伪的，证伪=怀疑，正好和信用的本质相反 3.信用由直觉产生，无逻辑。每一次交易都可能产生不同的信用关系。
 type Coin struct {
-	ID uint64 `json:"coinID" xorm:"pk autoincr BIGINT 'id'"`
+	ID uint64 `json:"coinID" xorm:"not null default nextval('coin_id_seq'::regclass) pk autoincr BIGINT 'id'"`
 
 	Name     string `json:"name" xorm:"not null unique unique(coin_name_pwd_idx) VARCHAR(20)"`                      //鸟币号，不可重复、不可修改、少于20个字符，可用于登录。统一格式化为去除首尾空格的、以字母开头的、仅包含字母(Unicode)数字短横线的全小写格式，中间空格以短横线替换。
 	Phone    string `json:"phone,omitempty" xorm:"not null unique unique(coin_phone_pwd_idx) VARCHAR(20)"`          //绑定手机号，不可重复，可修改，主要用于登录和找回密码。统一格式为为E164，eg.+8618612345678

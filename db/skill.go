@@ -7,7 +7,7 @@ import (
 //Skill 最新技能（指自身天赋和任何对他人有用的东西），此表不可删除
 //注意：发币是使用技能快照，而不是最新技能，每次更新skill后，在发币的时候就需要新建snap。
 type Skill struct {
-	ID      uint64    `json:"skillID" xorm:"pk unique(skill_id_owner_idx) BIGINT autoincr 'id'"`
+	ID      uint64    `json:"skillID" xorm:"not null default nextval('skill_id_seq'::regclass) pk unique(skill_id_owner_idx) BIGINT autoincr 'id'"`
 	Created time.Time `json:"created" xorm:"not null index created"`
 	Updated time.Time `json:"updated" xorm:"index updated"`
 	Deleted time.Time `json:"-" xorm:"deleted"`

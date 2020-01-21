@@ -9,7 +9,7 @@ import (
 //marker血盟，歃血为盟之意，也称作超级鸟币，承诺为持有者(bearer)做任何一件事。
 //注意，兑现的技能，只能是技能的最新版本或发币时所用的版本
 type Repay struct {
-	ID        uint64    `json:"fulfilID" xorm:"pk BIGINT autoincr 'id'"`
+	ID        uint64    `json:"fulfilID" xorm:"not null default nextval('repay_id_seq'::regclass) pk BIGINT autoincr 'id'"`
 	ReqID     uint64    `json:"reqID" xorm:"not null index BIGINT 'req_id'"`                             //兑现请求ID
 	SnapID    uint64    `json:"snapID" xorm:"index BIGINT 'snap_id'"`                                    //实际兑现的技能快照ID
 	SnapSetID uint64    `json:"snapSetID" xorm:"index BIGINT 'snap_set_id'"`                             //技能快照组id

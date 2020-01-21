@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/beanstalkd/go-beanstalk"
+	"github.com/didip/tollbooth"
 	"github.com/go-xorm/xorm"
 	"github.com/gogf/gf/os/gtimer"
 	"github.com/iris-contrib/middleware/jwt"
+	"github.com/iris-contrib/middleware/tollboothic"
 	"github.com/kataras/iris"
 	"github.com/kataras/iris/hero"
 	"github.com/kataras/iris/middleware/recover"
@@ -63,6 +65,9 @@ func main() {
 		Expiration: true,
 	})
 
+	//限制请求次数每秒2次
+	limiter := tollbooth.NewLimiter(2, nil)
+
 	//-----定时任务-----
 	startTimer()
 	jobReqCheck()
@@ -71,6 +76,7 @@ func main() {
 	app := iris.New()
 	app.Use(recover.New())
 	app.Use(dbHandler)
+	app.Use(tollboothic.LimitHandler(limiter))
 
 	//自定义路由规则
 	app.Macros().Get("string").RegisterFunc("range", func(minLength, maxLength int) func(string) bool {
