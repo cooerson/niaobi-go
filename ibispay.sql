@@ -12,7 +12,7 @@
  Target Server Version : 110005
  File Encoding         : 65001
 
- Date: 20/01/2020 18:30:26
+ Date: 22/01/2020 17:22:14
 */
 
 
@@ -548,7 +548,7 @@ COMMENT ON TABLE "public"."sum" IS '鸟币持有量，对应sum表。此表不�
 SELECT setval('"public"."coin_id_seq"', 36, true);
 SELECT setval('"public"."fulfil_id_seq"', 3, false);
 SELECT setval('"public"."info_id_seq"', 6, true);
-SELECT setval('"public"."news_id_seq"', 393, true);
+SELECT setval('"public"."news_id_seq"', 397, true);
 ALTER SEQUENCE "public"."news_id_seq1"
 OWNED BY "public"."news"."id";
 SELECT setval('"public"."news_id_seq1"', 2, false);
@@ -557,7 +557,7 @@ SELECT setval('"public"."pic_id_seq"', 2, false);
 ALTER SEQUENCE "public"."repay_id_seq"
 OWNED BY "public"."repay"."id";
 SELECT setval('"public"."repay_id_seq"', 17, true);
-SELECT setval('"public"."req_id_seq"', 50, true);
+SELECT setval('"public"."req_id_seq"', 51, true);
 SELECT setval('"public"."skill_id_seq"', 127, true);
 SELECT setval('"public"."snap_id_seq"', 38, true);
 SELECT setval('"public"."snap_set_id_seq"', 28, true);

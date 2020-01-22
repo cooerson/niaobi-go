@@ -68,12 +68,22 @@ type (
 		}
 
 		Req struct {
-			ReqBearer10 string
-			ReqIssuer10 string
-			ReqBearer11 string
-			ReqIssuer11 string
-			ReqBearer22 string
-			ReqIssuer22 string
+			B10 string
+			I10 string
+			B11 string
+			I11 string
+			B20 string
+			I20 string
+			B21 string
+			I21 string
+			B22 string
+			I22 string
+			B23 string
+			I23 string
+			B30 string
+			I30 string
+			B31 string
+			I31 string
 		}
 
 		Err struct {
@@ -130,6 +140,11 @@ type (
 			T1001 string
 			T1002 string
 			T1003 string
+			T1004 string
+			T1005 string
+			T1006 string
+			T1007 string
+			T1008 string
 		}
 	}
 )

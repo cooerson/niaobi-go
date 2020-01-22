@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"sort"
 	"strings"
@@ -465,11 +466,11 @@ func NewReq(ctx iris.Context, form model.NewReqForm) {
 		}
 
 		//news
-		tip1 := config.Public.Req.ReqBearer10 //请求方提示
-		tip2 := config.Public.Req.ReqIssuer10 //执行方提示
+		tip1 := config.Public.Req.B10 //请求方提示
+		tip2 := config.Public.Req.I10 //执行方提示
 		if form.IsMarker {
-			tip1 = config.Public.Req.ReqBearer11 //请求方提示（血盟）
-			tip2 = config.Public.Req.ReqIssuer11 //执行方提示（血盟）
+			tip1 = config.Public.Req.B11 //请求方提示（血盟）
+			tip2 = config.Public.Req.I11 //执行方提示（血盟）
 		}
 		bearerNews := db.News{Owner: coinName, Desc: tip1, Amount: int64(form.Amount), Buddy: form.Issuer, Table: config.NewsTableReq, SourceID: req.ID}
 		issuerNews := db.News{Owner: form.Issuer, Desc: tip2, Amount: int64(form.Amount), Buddy: coinName, Table: config.NewsTableReq, SourceID: req.ID}
@@ -685,8 +686,10 @@ func NewRepay(ctx iris.Context, form model.NewRepayForm) {
 	}
 
 	//新的news
-	bearerNews := db.News{Owner: bearer, Desc: config.Public.Tips.T1002, Amount: bearerAdd, Buddy: issuer, SourceID: form.ReqID, Table: config.NewsTableReq}
-	issuerNews := db.News{Owner: issuer, Desc: config.Public.Tips.T1003, Amount: issuerAdd, Buddy: bearer, SourceID: form.ReqID, Table: config.NewsTableReq}
+	tip1 := config.Public.Req.B20 //请求方提示
+	tip2 := config.Public.Req.I20 //执行方提示
+	bearerNews := db.News{Owner: bearer, Desc: tip1, Amount: bearerAdd, Buddy: issuer, SourceID: form.ReqID, Table: config.NewsTableReq}
+	issuerNews := db.News{Owner: issuer, Desc: tip2, Amount: issuerAdd, Buddy: bearer, SourceID: form.ReqID, Table: config.NewsTableReq}
 
 	//数据库事务
 	//处理pay表、sum表/sub_sum、news表/info表、req表
@@ -808,12 +811,40 @@ func RejectReq(ctx iris.Context) {
 		delete(lock.Locks, bearer)
 	}()
 
-	//修改状态
-	affected, err := pq.ID(reqID).Update(&db.Req{State: 21})
+	//数据库事务
+	tip1 := config.Public.Req.B21 //请求方提示
+	tip2 := config.Public.Req.I21 //执行方提示
+	bearerNews := db.News{Owner: bearer, Desc: tip1, Amount: int64(req.Amount), Buddy: issuer, Table: config.NewsTableReq, SourceID: reqID}
+	issuerNews := db.News{Owner: issuer, Desc: tip2, Amount: int64(req.Amount), Buddy: bearer, Table: config.NewsTableReq, SourceID: reqID}
+	_, err = pq.Transaction(func(session *xorm.Session) (interface{}, error) {
+		//new news
+		_, err := session.Insert(&bearerNews, &issuerNews)
+		if err != nil {
+			return nil, err
+		}
+
+		//update info
+		_, err = session.Where("owner = ?", bearer).UseBool().Update(&db.Info{HasNews: true})
+		if err != nil {
+			return nil, err
+		}
+		_, err = session.Where("owner = ?", issuer).UseBool().Update(&db.Info{HasNews: true})
+		if err != nil {
+			return nil, err
+		}
+
+		//修改状态
+		affected, err := session.ID(reqID).Update(&db.Req{State: 21})
+		if err != nil {
+			return nil, err
+		}
+		if affected == 0 {
+			return nil, errors.New(config.Public.Err.E1004)
+		}
+
+		return nil, nil
+	})
 	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
-	if affected == 0 {
-		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1004)
-	}
 
 	ctx.JSON(&model.UpdateRes{Ok: true})
 
@@ -840,12 +871,43 @@ func UnCash(ctx iris.Context) {
 	if req.State != 20 {
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1044)
 	}
-	//修改状态
-	affected, err := pq.ID(reqID).Update(&db.Req{State: 23})
+
+	//数据库事务
+	bearer := req.Bearer
+	issuer := req.Issuer
+	tip1 := config.Public.Req.B23 //请求方提示
+	tip2 := config.Public.Req.I23 //执行方提示
+	bearerNews := db.News{Owner: bearer, Desc: tip1, Amount: int64(req.Amount), Buddy: issuer, Table: config.NewsTableReq, SourceID: reqID}
+	issuerNews := db.News{Owner: issuer, Desc: tip2, Amount: int64(req.Amount), Buddy: bearer, Table: config.NewsTableReq, SourceID: reqID}
+	_, err = pq.Transaction(func(session *xorm.Session) (interface{}, error) {
+		//new news
+		_, err := session.Insert(&bearerNews, &issuerNews)
+		if err != nil {
+			return nil, err
+		}
+
+		//update info
+		_, err = session.Where("owner = ?", bearer).UseBool().Update(&db.Info{HasNews: true})
+		if err != nil {
+			return nil, err
+		}
+		_, err = session.Where("owner = ?", issuer).UseBool().Update(&db.Info{HasNews: true})
+		if err != nil {
+			return nil, err
+		}
+
+		//修改状态
+		affected, err := session.ID(reqID).Update(&db.Req{State: 23})
+		if err != nil {
+			return nil, err
+		}
+		if affected == 0 {
+			return nil, errors.New(config.Public.Err.E1004)
+		}
+
+		return nil, nil
+	})
 	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
-	if affected == 0 {
-		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1004)
-	}
 
 	ctx.JSON(&model.UpdateRes{Ok: true})
 
@@ -876,12 +938,43 @@ func Redo(ctx iris.Context) {
 	if req.State == 23 && req.Updated.AddDate(0, 0, 3).After(time.Now()) {
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1043)
 	}
-	//修改状态
-	affected, err := pq.ID(reqID).Update(&db.Req{State: 20})
+
+	//数据库事务
+	bearer := req.Bearer
+	issuer := req.Issuer
+	tip1 := config.Public.Req.B20 //请求方提示
+	tip2 := config.Public.Req.I20 //执行方提示
+	bearerNews := db.News{Owner: bearer, Desc: tip1, Amount: int64(req.Amount), Buddy: issuer, Table: config.NewsTableReq, SourceID: reqID}
+	issuerNews := db.News{Owner: issuer, Desc: tip2, Amount: int64(req.Amount), Buddy: bearer, Table: config.NewsTableReq, SourceID: reqID}
+	_, err = pq.Transaction(func(session *xorm.Session) (interface{}, error) {
+		//new news
+		_, err := session.Insert(&bearerNews, &issuerNews)
+		if err != nil {
+			return nil, err
+		}
+
+		//update info
+		_, err = session.Where("owner = ?", bearer).UseBool().Update(&db.Info{HasNews: true})
+		if err != nil {
+			return nil, err
+		}
+		_, err = session.Where("owner = ?", issuer).UseBool().Update(&db.Info{HasNews: true})
+		if err != nil {
+			return nil, err
+		}
+
+		//修改状态
+		affected, err := session.ID(reqID).Update(&db.Req{State: 20})
+		if err != nil {
+			return nil, err
+		}
+		if affected == 0 {
+			return nil, errors.New(config.Public.Err.E1004)
+		}
+
+		return nil, nil
+	})
 	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
-	if affected == 0 {
-		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1004)
-	}
 
 	ctx.JSON(&model.UpdateRes{Ok: true})
 
@@ -908,12 +1001,43 @@ func Done(ctx iris.Context) {
 	if req.State < 20 || req.State >= 30 {
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1044)
 	}
-	//修改状态
-	affected, err := pq.ID(reqID).Update(&db.Req{State: 30})
+
+	//数据库事务
+	bearer := req.Bearer
+	issuer := req.Issuer
+	tip1 := config.Public.Req.B30 //请求方提示
+	tip2 := config.Public.Req.I30 //执行方提示
+	bearerNews := db.News{Owner: bearer, Desc: tip1, Amount: int64(req.Amount), Buddy: issuer, Table: config.NewsTableReq, SourceID: reqID}
+	issuerNews := db.News{Owner: issuer, Desc: tip2, Amount: int64(req.Amount), Buddy: bearer, Table: config.NewsTableReq, SourceID: reqID}
+	_, err = pq.Transaction(func(session *xorm.Session) (interface{}, error) {
+		//new news
+		_, err := session.Insert(&bearerNews, &issuerNews)
+		if err != nil {
+			return nil, err
+		}
+
+		//update info
+		_, err = session.Where("owner = ?", bearer).UseBool().Update(&db.Info{HasNews: true})
+		if err != nil {
+			return nil, err
+		}
+		_, err = session.Where("owner = ?", issuer).UseBool().Update(&db.Info{HasNews: true})
+		if err != nil {
+			return nil, err
+		}
+
+		//修改状态
+		affected, err := session.ID(reqID).Update(&db.Req{State: 30})
+		if err != nil {
+			return nil, err
+		}
+		if affected == 0 {
+			return nil, errors.New(config.Public.Err.E1004)
+		}
+
+		return nil, nil
+	})
 	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
-	if affected == 0 {
-		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1004)
-	}
 
 	ctx.JSON(&model.UpdateRes{Ok: true})
 

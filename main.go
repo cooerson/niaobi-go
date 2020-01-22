@@ -300,8 +300,8 @@ func jobReqCheck() {
 		}
 
 		//数据库
-		news1 := db.News{Owner: req.Bearer, Desc: config.Public.Req.ReqBearer22, Amount: int64(req.Amount), Buddy: req.Issuer, Table: config.NewsTableReq, SourceID: req.ID}
-		news2 := db.News{Owner: req.Issuer, Desc: config.Public.Req.ReqIssuer22, Amount: int64(req.Amount), Buddy: req.Bearer, Table: config.NewsTableReq, SourceID: req.ID}
+		news1 := db.News{Owner: req.Bearer, Desc: config.Public.Req.B22, Amount: int64(req.Amount), Buddy: req.Issuer, Table: config.NewsTableReq, SourceID: req.ID}
+		news2 := db.News{Owner: req.Issuer, Desc: config.Public.Req.I22, Amount: int64(req.Amount), Buddy: req.Bearer, Table: config.NewsTableReq, SourceID: req.ID}
 		pq.Insert(&news1, &news2)
 		pq.ID(req.ID).Update(&db.Req{State: 22})
 
