@@ -5,11 +5,10 @@ import (
 	"io"
 	"os"
 
-	"golang.org/x/crypto/blake2b"
-
+	"github.com/kataras/iris/v12"
+	"github.com/kataras/iris/v12/context"
 	"github.com/rs/xid"
-
-	"github.com/kataras/iris"
+	"golang.org/x/crypto/blake2b"
 	"reqing.org/ibispay/config"
 	"reqing.org/ibispay/db"
 	"reqing.org/ibispay/model"
@@ -17,7 +16,7 @@ import (
 )
 
 //NewSkill 新建技能
-func NewSkill(ctx iris.Context, form model.NewSkillForm) {
+func NewSkill(ctx context.Context, form model.NewSkillForm) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
@@ -107,8 +106,8 @@ func NewSkill(ctx iris.Context, form model.NewSkillForm) {
 	}
 
 	//插入数据库
-	skill := db.Skill{Owner: coinName, Title: form.Title, Price: form.Price, Desc: form.Desc, Tags: form.Tags, Pics: []*db.Pic{}}
-	affected, err := pq.Insert(&skill)
+	skill := db.Skill{Owner: coinName, Title: form.Title, Price: form.Price, Desc: form.Desc, Tags: form.Tags, Pics: []*db.Pic{}, IsOpen: true}
+	affected, err := pq.UseBool().Insert(&skill)
 	if err != nil {
 		delOnErr()
 		e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
@@ -128,7 +127,7 @@ func NewSkill(ctx iris.Context, form model.NewSkillForm) {
 
 //UpdateSkill 更新技能
 //更新技能时，拖放图片直接上传，服务器返回图片hash值给前端，请求时仅带上图片的hash数组而不带图片
-func UpdateSkill(ctx iris.Context, form model.UpdateSkillForm) {
+func UpdateSkill(ctx context.Context, form model.UpdateSkillForm) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
@@ -175,7 +174,7 @@ func UpdateSkill(ctx iris.Context, form model.UpdateSkillForm) {
 }
 
 //OpenSkill 上架下架技能
-func OpenSkill(ctx iris.Context) {
+func OpenSkill(ctx context.Context) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
@@ -203,7 +202,7 @@ func OpenSkill(ctx iris.Context) {
 
 	//上架下架
 	skill.IsOpen = open
-	affected, err := pq.UseBool().Update(&skill)
+	affected, err := pq.ID(skill.ID).UseBool().Update(&skill)
 	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
 	if affected == 0 {
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1040)
@@ -213,7 +212,7 @@ func OpenSkill(ctx iris.Context) {
 }
 
 //DeleteSkill 删除技能
-func DeleteSkill(ctx iris.Context) {
+func DeleteSkill(ctx context.Context) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)

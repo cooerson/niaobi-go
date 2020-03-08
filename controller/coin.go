@@ -13,7 +13,8 @@ import (
 	"github.com/ipsn/go-adorable"
 	"github.com/iris-contrib/middleware/jwt"
 	"github.com/jinzhu/copier"
-	"github.com/kataras/iris"
+	"github.com/kataras/iris/v12"
+	"github.com/kataras/iris/v12/context"
 	"github.com/rs/xid"
 	"github.com/ttacon/libphonenumber"
 	"golang.org/x/crypto/scrypt"
@@ -26,7 +27,7 @@ import (
 )
 
 //Login 登录
-func Login(ctx iris.Context, form model.LoginForm) {
+func Login(ctx context.Context, form model.LoginForm) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 
@@ -61,7 +62,7 @@ func Login(ctx iris.Context, form model.LoginForm) {
 }
 
 //Register 注册
-func Register(ctx iris.Context, form model.RegisterForm) {
+func Register(ctx context.Context, form model.RegisterForm) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	util.LogDebug("=====RegisterHandler=====")
@@ -141,7 +142,7 @@ func Register(ctx iris.Context, form model.RegisterForm) {
 }
 
 //UpdatePwd 修改密码
-func UpdatePwd(ctx iris.Context, form model.NewPwdForm) {
+func UpdatePwd(ctx context.Context, form model.NewPwdForm) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	cid := GetJwtUser(ctx)[config.JwtCIDKey].(float64)
@@ -178,7 +179,7 @@ func UpdatePwd(ctx iris.Context, form model.NewPwdForm) {
 }
 
 //UpdateAvatar 修改头像
-func UpdateAvatar(ctx iris.Context) {
+func UpdateAvatar(ctx context.Context) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	cid := GetJwtUser(ctx)[config.JwtCIDKey].(float64)
@@ -280,7 +281,7 @@ func UpdateAvatar(ctx iris.Context) {
 }
 
 //UpdateProfile 修改个人资料
-func UpdateProfile(ctx iris.Context, form model.ProfileForm) {
+func UpdateProfile(ctx context.Context, form model.ProfileForm) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	cid := GetJwtUser(ctx)[config.JwtCIDKey].(float64)
@@ -298,7 +299,7 @@ func UpdateProfile(ctx iris.Context, form model.ProfileForm) {
 }
 
 //GetProfile 获取鸟币资料
-func GetProfile(ctx iris.Context) {
+func GetProfile(ctx context.Context) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	cid := GetJwtUser(ctx)[config.JwtCIDKey].(float64)
@@ -333,7 +334,7 @@ func GetProfile(ctx iris.Context) {
 }
 
 //GetMyActivity 获取我的新动态
-func GetMyActivity(ctx iris.Context) {
+func GetMyActivity(ctx context.Context) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
@@ -342,6 +343,7 @@ func GetMyActivity(ctx iris.Context) {
 	pq.Get(&info)
 	info.RmbExr = GetRMBExr(ctx)
 
+	//todo
 	if info.HasNews {
 		news := db.News{}
 		counts, err := pq.Where("owner = ", coinName).Count(&news)
@@ -430,22 +432,22 @@ func getSafePWD(pwd string) (string, error) {
 }
 
 //GetPQ 获取PQ
-func GetPQ(ctx iris.Context) *xorm.Engine {
+func GetPQ(ctx context.Context) *xorm.Engine {
 	return ctx.Values().Get(config.PQIrisIDKey).(*xorm.Engine)
 }
 
 //GetRMBExr 获取RMBExr
-func GetRMBExr(ctx iris.Context) float64 {
+func GetRMBExr(ctx context.Context) float64 {
 	return ctx.Values().Get(config.RMBExrIrisKey).(float64)
 }
 
 //GetTxLocks 获取交易锁
-func GetTxLocks(ctx iris.Context) *db.TransLocks {
+func GetTxLocks(ctx context.Context) *db.TransLocks {
 	return ctx.Values().Get(config.TxLocksIrisKey).(*db.TransLocks)
 }
 
 //GetJwtUser 获取JwtUser
-func GetJwtUser(ctx iris.Context) jwt.MapClaims {
+func GetJwtUser(ctx context.Context) jwt.MapClaims {
 	return ctx.Values().Get(config.JWTIrisIDKey).(*jwt.Token).Claims.(jwt.MapClaims)
 }
 

@@ -11,7 +11,8 @@ import (
 	"time"
 
 	"github.com/go-xorm/xorm"
-	"github.com/kataras/iris"
+	"github.com/kataras/iris/v12"
+	"github.com/kataras/iris/v12/context"
 	"github.com/kr/beanstalk"
 	"github.com/rs/xid"
 	"github.com/thinkeridea/go-extend/exbytes"
@@ -22,7 +23,7 @@ import (
 )
 
 //NewPay 发行或转手鸟币
-func NewPay(ctx iris.Context, form model.NewPayForm) {
+func NewPay(ctx context.Context, form model.NewPayForm) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
@@ -390,11 +391,11 @@ func NewPay(ctx iris.Context, form model.NewPayForm) {
 		}
 
 		//update info
-		_, err = session.Where("owner = ?", payerName).UseBool().Update(&db.Info{HasNews: true})
+		_, err = session.Cols("has_news").Where("owner = ?", payerName).UseBool().Update(&db.Info{HasNews: true})
 		if err != nil {
 			return nil, err
 		}
-		_, err = session.Where("owner = ?", receiverName).UseBool().Update(&db.Info{HasNews: true})
+		_, err = session.Cols("has_news").Where("owner = ?", receiverName).UseBool().Update(&db.Info{HasNews: true})
 		if err != nil {
 			return nil, err
 		}
@@ -410,7 +411,7 @@ func NewPay(ctx iris.Context, form model.NewPayForm) {
 }
 
 //NewReq 兑现鸟币请求
-func NewReq(ctx iris.Context, form model.NewReqForm) {
+func NewReq(ctx context.Context, form model.NewReqForm) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
@@ -436,7 +437,7 @@ func NewReq(ctx iris.Context, form model.NewReqForm) {
 
 	//检查拥有的鸟币是否足够
 	sum := db.Sum{Bearer: coinName, Coin: form.Issuer, IsMarker: form.IsMarker}
-	has, err := pq.UseBool().Get(&sum)
+	has, err := pq.Where("bearer = ? and coin = ?", sum.Bearer, sum.Coin).UseBool().Get(&sum)
 	checkDBErr(err)
 	if has == false {
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1004)
@@ -447,7 +448,7 @@ func NewReq(ctx iris.Context, form model.NewReqForm) {
 
 	//2小时内只能向同一用户请求一次（未处理请求的情况即state=10）
 	r := db.Req{Closed: false, Issuer: form.Issuer, Bearer: coinName, State: 10}
-	has, err = pq.UseBool().Cols("created").Desc("created").Get(&r)
+	has, err = pq.Where("issuer = ? and bearer = ? ", r.Issuer, r.Bearer).UseBool().Cols("created").Desc("created").Get(&r)
 	checkDBErr(err)
 	if has == true {
 		if r.Created.Add(time.Hour * 2).After(time.Now()) {
@@ -480,11 +481,11 @@ func NewReq(ctx iris.Context, form model.NewReqForm) {
 		}
 
 		//info
-		_, err = session.Where("owner = ?", coinName).UseBool().Update(&db.Info{HasReq: true})
+		_, err = session.Where("owner = ?", coinName).Cols("has_req").UseBool().Update(&db.Info{HasReq: true})
 		if err != nil {
 			return nil, err
 		}
-		_, err = session.Where("owner = ?", form.Issuer).UseBool().Update(&db.Info{HasReq: true})
+		_, err = session.Where("owner = ?", form.Issuer).Cols("has_req").UseBool().Update(&db.Info{HasReq: true})
 		if err != nil {
 			return nil, err
 		}
@@ -503,7 +504,7 @@ func NewReq(ctx iris.Context, form model.NewReqForm) {
 		ttr time, the job will time out and the server will release the job.
 		*/
 		//2小时后检查是否接受，ttr为5秒（数据库操作通常是毫秒级别）
-		_, err = tube.Put(byteReq, 0, 20*time.Second, 5*time.Second)
+		_, err = tube.Put(byteReq, 0, 2*time.Hour, 5*time.Second)
 		if err != nil {
 			return nil, err
 		}
@@ -520,7 +521,7 @@ func NewReq(ctx iris.Context, form model.NewReqForm) {
 }
 
 //NewRepay 兑现鸟币（接受兑现请求）
-func NewRepay(ctx iris.Context, form model.NewRepayForm) {
+func NewRepay(ctx context.Context, form model.NewRepayForm) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
@@ -549,7 +550,7 @@ func NewRepay(ctx iris.Context, form model.NewRepayForm) {
 
 	//检查是否存在匹配的请求
 	req := db.Req{ID: form.ReqID, Closed: false, State: 10}
-	exist, err = pq.UseBool().Get(&req)
+	exist, err = pq.ID(req.ID).UseBool().Get(&req)
 	checkDBErr(err)
 	if exist == false {
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1033)
@@ -586,7 +587,7 @@ func NewRepay(ctx iris.Context, form model.NewRepayForm) {
 	//---准备更新sum记录，并在稍后加入事务---
 	//持有人sum
 	bearerSum := db.Sum{Bearer: bearer, Coin: txCoin, IsMarker: form.IsMarker}
-	has, err := pq.UseBool().Get(&bearerSum)
+	has, err := pq.Where("bearer = ? and coin = ?", bearerSum.Bearer, bearerSum.Coin).UseBool().Get(&bearerSum)
 	checkDBErr(err)
 	if has == false {
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1004)
@@ -600,7 +601,7 @@ func NewRepay(ctx iris.Context, form model.NewRepayForm) {
 	bearerSum.Sum += bearerAdd
 	//发行者sum
 	issuerSum := db.Sum{Bearer: issuer, Coin: txCoin, IsMarker: form.IsMarker}
-	has, err = pq.UseBool().Get(&issuerSum)
+	has, err = pq.Where("bearer = ? and coin = ?", issuerSum.Bearer, issuerSum.Coin).UseBool().Get(&issuerSum)
 	checkDBErr(err)
 	if has == false {
 		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1004)
@@ -751,11 +752,11 @@ func NewRepay(ctx iris.Context, form model.NewRepayForm) {
 		}
 
 		//update info
-		_, err = session.Where("owner = ?", bearer).UseBool().Update(&db.Info{HasNews: true})
+		_, err = session.Where("owner = ?", bearer).Cols("has_news").UseBool().Update(&db.Info{HasNews: true})
 		if err != nil {
 			return nil, err
 		}
-		_, err = session.Where("owner = ?", issuer).UseBool().Update(&db.Info{HasNews: true})
+		_, err = session.Where("owner = ?", issuer).Cols("has_news").UseBool().Update(&db.Info{HasNews: true})
 		if err != nil {
 			return nil, err
 		}
@@ -777,7 +778,7 @@ func NewRepay(ctx iris.Context, form model.NewRepayForm) {
 }
 
 //RejectReq 拒绝兑现请求
-func RejectReq(ctx iris.Context) {
+func RejectReq(ctx context.Context) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
@@ -824,11 +825,11 @@ func RejectReq(ctx iris.Context) {
 		}
 
 		//update info
-		_, err = session.Where("owner = ?", bearer).UseBool().Update(&db.Info{HasNews: true})
+		_, err = session.Where("owner = ?", bearer).Cols("has_news").UseBool().Update(&db.Info{HasNews: true})
 		if err != nil {
 			return nil, err
 		}
-		_, err = session.Where("owner = ?", issuer).UseBool().Update(&db.Info{HasNews: true})
+		_, err = session.Where("owner = ?", issuer).Cols("has_news").UseBool().Update(&db.Info{HasNews: true})
 		if err != nil {
 			return nil, err
 		}
@@ -853,7 +854,7 @@ func RejectReq(ctx iris.Context) {
 }
 
 //UnCash 对方未兑现请求
-func UnCash(ctx iris.Context) {
+func UnCash(ctx context.Context) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
@@ -887,11 +888,11 @@ func UnCash(ctx iris.Context) {
 		}
 
 		//update info
-		_, err = session.Where("owner = ?", bearer).UseBool().Update(&db.Info{HasNews: true})
+		_, err = session.Where("owner = ?", bearer).Cols("has_news").UseBool().Update(&db.Info{HasNews: true})
 		if err != nil {
 			return nil, err
 		}
-		_, err = session.Where("owner = ?", issuer).UseBool().Update(&db.Info{HasNews: true})
+		_, err = session.Where("owner = ?", issuer).Cols("has_news").UseBool().Update(&db.Info{HasNews: true})
 		if err != nil {
 			return nil, err
 		}
@@ -916,7 +917,7 @@ func UnCash(ctx iris.Context) {
 }
 
 //Redo 重新执行请求，两次重做的间隔至少大于3天
-func Redo(ctx iris.Context) {
+func Redo(ctx context.Context) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
@@ -954,11 +955,11 @@ func Redo(ctx iris.Context) {
 		}
 
 		//update info
-		_, err = session.Where("owner = ?", bearer).UseBool().Update(&db.Info{HasNews: true})
+		_, err = session.Where("owner = ?", bearer).Cols("has_news").UseBool().Update(&db.Info{HasNews: true})
 		if err != nil {
 			return nil, err
 		}
-		_, err = session.Where("owner = ?", issuer).UseBool().Update(&db.Info{HasNews: true})
+		_, err = session.Where("owner = ?", issuer).Cols("has_news").UseBool().Update(&db.Info{HasNews: true})
 		if err != nil {
 			return nil, err
 		}
@@ -983,7 +984,7 @@ func Redo(ctx iris.Context) {
 }
 
 //Done 完成交易标记（对方完成兑现）
-func Done(ctx iris.Context) {
+func Done(ctx context.Context) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
@@ -1017,11 +1018,11 @@ func Done(ctx iris.Context) {
 		}
 
 		//update info
-		_, err = session.Where("owner = ?", bearer).UseBool().Update(&db.Info{HasNews: true})
+		_, err = session.Where("owner = ?", bearer).Cols("has_news").UseBool().Update(&db.Info{HasNews: true})
 		if err != nil {
 			return nil, err
 		}
-		_, err = session.Where("owner = ?", issuer).UseBool().Update(&db.Info{HasNews: true})
+		_, err = session.Where("owner = ?", issuer).Cols("has_news").UseBool().Update(&db.Info{HasNews: true})
 		if err != nil {
 			return nil, err
 		}
@@ -1050,7 +1051,7 @@ func UpdateInfo(pq *xorm.Engine, coinName string) {
 	go func(pq *xorm.Engine, coinName string) {
 		//Issued 普通鸟币——当前发行量
 		sum := db.Sum{Bearer: coinName, Coin: coinName, IsMarker: false}
-		pq.UseBool().Get(&sum)
+		pq.Where("bearer = ? and coin = ?", sum.Bearer, sum.Coin).UseBool().Get(&sum)
 
 		//Denied 普通鸟币——当前拒绝量
 		denied, _ := pq.Where("state > 20 and state < 30").UseBool().SumInt(&db.Req{Issuer: coinName, Closed: false, IsMarker: false}, "amount")
@@ -1059,7 +1060,8 @@ func UpdateInfo(pq *xorm.Engine, coinName string) {
 		breakNum, _ := pq.Where("state > 20 and state < 30").UseBool().Count(&db.Req{Issuer: coinName, Closed: false, IsMarker: true})
 
 		//SkillNum 当前可用的技能数
-		skillNum, _ := pq.UseBool().Count(&db.Skill{Owner: coinName, IsOpen: false})
+		skill := db.Skill{Owner: coinName, IsOpen: false}
+		skillNum, _ := pq.Where("owner = ?", skill.Owner).UseBool().Count(&skill)
 
 		//更新
 		coin := db.Coin{Issued: uint64(-sum.Sum), Denied: uint64(denied), BreakNum: uint32(breakNum), SkillNum: uint32(skillNum)}

@@ -15,9 +15,10 @@ import (
 	"github.com/gogf/gf/os/gtimer"
 	"github.com/iris-contrib/middleware/jwt"
 	"github.com/iris-contrib/middleware/tollboothic"
-	"github.com/kataras/iris"
-	"github.com/kataras/iris/hero"
-	"github.com/kataras/iris/middleware/recover"
+	"github.com/kataras/iris/v12"
+	"github.com/kataras/iris/v12/context"
+	"github.com/kataras/iris/v12/hero"
+	"github.com/kataras/iris/v12/middleware/recover"
 	_ "github.com/lib/pq"
 	"github.com/robfig/cron"
 	"github.com/thinkeridea/go-extend/exbytes"
@@ -56,7 +57,7 @@ func main() {
 	model.BindForm()
 
 	//-----中间件-----
-	jwtHandler := jwt.New(jwt.Config{
+	jwt := jwt.New(jwt.Config{
 		ContextKey:    config.JWTIrisIDKey,
 		SigningMethod: jwt.SigningMethodHS256,
 		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
@@ -65,8 +66,8 @@ func main() {
 		Expiration: true,
 	})
 
-	//限制请求次数每秒2次
-	limiter := tollbooth.NewLimiter(2, nil)
+	//限制请求次数每秒3次
+	limiter := tollbooth.NewLimiter(3, nil)
 
 	//-----定时任务-----
 	startTimer()
@@ -88,7 +89,7 @@ func main() {
 	//人民币兑换鸟币汇率（1人民币=多少鸟币），仅供定价时参考，不可直接使用"RmbExr*人民币兑其他某个法币货币的汇率"来计算"其他某个法币货币兑鸟币的汇率"
 	//在系统中正确的计算其他货币兑鸟币的汇率的方法：如港币，应该是港币当前的M2与鸟币创世时的港币M2的比值
 	//注意，备用方案config.Public.Exr.RmbExr是管理员手动维护的数据，见config.toml
-	app.Get("/exr/rmb", func(ctx iris.Context) {
+	app.Get("/exr/rmb", func(ctx context.Context) {
 		res := rmbExrRes{RmbExr: rmbExr}
 		ctx.JSON(&res)
 	})
@@ -97,7 +98,7 @@ func main() {
 	app.Post("/login", hero.Handler(controller.Login))       //登录
 	coin := app.Party("coin")
 	{
-		coin.Use(jwtHandler.Serve)
+		coin.Use(jwt.Serve)
 		{
 			coin.Put("/updateProfile", hero.Handler(controller.UpdateProfile))             //修改个人资料
 			coin.Put("/updatePwd", hero.Handler(controller.UpdatePwd))                     //修改密码
@@ -111,7 +112,7 @@ func main() {
 
 	skill := app.Party("skill")
 	{
-		skill.Use(jwtHandler.Serve)
+		skill.Use(jwt.Serve)
 		{
 			skill.Post("/new", picsSizeHandler, transHandler, hero.Handler(controller.NewSkill))    //添加技能
 			skill.Put("/update", transHandler, hero.Handler(controller.UpdateSkill))                //更新技能
@@ -123,7 +124,7 @@ func main() {
 
 	trans := app.Party("tx")
 	{
-		trans.Use(jwtHandler.Serve)
+		trans.Use(jwt.Serve)
 		{
 			trans.Post("/pay", transHandler, hero.Handler(controller.NewPay))              //支付
 			trans.Post("/req", hero.Handler(controller.NewReq))                            //发送兑现请求
@@ -137,7 +138,7 @@ func main() {
 
 	img := app.Party("img")
 	{
-		img.Use(jwtHandler.Serve)
+		img.Use(jwt.Serve)
 		{
 			img.Get("/exist/{hash:string range(64,64) else 400}", controller.CheckPicHash) //检查图片是否存在
 			img.Post("/new", picSizeHandler, controller.NewPic)                            //上传图片
@@ -145,17 +146,17 @@ func main() {
 	}
 
 	//认证失败
-	app.OnErrorCode(iris.StatusUnauthorized, func(ctx iris.Context) {
+	app.OnErrorCode(iris.StatusUnauthorized, func(ctx context.Context) {
 		var e = new(model.CommonError)
 		e.FinalError(ctx, iris.StatusUnauthorized, config.Public.Err.E1010)
 	})
 	//路由错误
-	app.OnErrorCode(iris.StatusNotFound, func(ctx iris.Context) {
+	app.OnErrorCode(iris.StatusNotFound, func(ctx context.Context) {
 		var e = new(model.CommonError)
 		e.FinalError(ctx, iris.StatusNotFound, config.Public.Err.E1011)
 	})
 	//上传文件过大
-	app.OnErrorCode(iris.StatusRequestEntityTooLarge, func(ctx iris.Context) {
+	app.OnErrorCode(iris.StatusRequestEntityTooLarge, func(ctx context.Context) {
 		var e = new(model.CommonError)
 		e.FinalError(ctx, iris.StatusRequestEntityTooLarge, config.Public.Err.E1014)
 	})
@@ -163,25 +164,25 @@ func main() {
 }
 
 //-----中间件-----
-func dbHandler(ctx iris.Context) {
+func dbHandler(ctx context.Context) {
 	ctx.Values().Set(config.PQIrisIDKey, pq)
 	ctx.Next()
 }
 
 //检查头像大小
-func exrHandler(ctx iris.Context) {
+func exrHandler(ctx context.Context) {
 	ctx.Values().Set(config.RMBExrIrisKey, rmbExr)
 	ctx.Next()
 }
 
 //交易锁
-func transHandler(ctx iris.Context) {
+func transHandler(ctx context.Context) {
 	ctx.Values().Set(config.TxLocksIrisKey, txLocks)
 	ctx.Next()
 }
 
 //检查单张图片大小
-func picSizeHandler(ctx iris.Context) {
+func picSizeHandler(ctx context.Context) {
 	if ctx.GetContentLength() > config.Public.Pic.MaxUploadPic {
 		ctx.StatusCode(iris.StatusRequestEntityTooLarge)
 		return
@@ -190,7 +191,7 @@ func picSizeHandler(ctx iris.Context) {
 }
 
 //检查多图上传的大小
-func picsSizeHandler(ctx iris.Context) {
+func picsSizeHandler(ctx context.Context) {
 	if ctx.GetContentLength() > config.Public.Pic.MaxUploadPics {
 		ctx.StatusCode(iris.StatusRequestEntityTooLarge)
 		return
@@ -220,7 +221,7 @@ func (jobRMBExr) Run() {
 	fmt.Println("[timer]Running RmbExrJob...")
 
 	//注意：不同国家需要使用各自国家的M2
-	//每隔一段时间，自动更新人民币m2，数据来自新浪财经
+	//每隔一段时间，自动更新人民币m2，此处数据来自新浪财经。官方来源 http://www.pbc.gov.cn/diaochatongjisi/116219/116319/3750274/3750284/index.html
 	resp, err := http.Get("http://money.finance.sina.com.cn/mac/api/jsonp.php/SINAREMOTECALLCALLBACK/MacPage_Service.get_pagedata?cate=fininfo&event=1&from=0&num=1&condition")
 
 	/**
@@ -248,7 +249,12 @@ func (jobRMBExr) Run() {
 
 	//格式整理
 	s := str.String()
-	newstr := s[strings.LastIndex(s, "data:"):]
+	idx := strings.LastIndex(s, "data:")
+	if idx < 1 {
+		rmbExr = config.Public.Exr.RmbExr
+		return
+	}
+	newstr := s[idx:]
 	newstr = exstrings.SubString(newstr, 6, len(newstr)-10)
 	util.LogDebug(newstr)
 

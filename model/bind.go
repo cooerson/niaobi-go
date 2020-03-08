@@ -3,8 +3,9 @@ package model
 import (
 	zhongwen "github.com/go-playground/locales/zh"
 	ut "github.com/go-playground/universal-translator"
-	"github.com/kataras/iris"
-	"github.com/kataras/iris/hero"
+	"github.com/kataras/iris/v12"
+	"github.com/kataras/iris/v12/context"
+	"github.com/kataras/iris/v12/hero"
 	validator "gopkg.in/go-playground/validator.v9"
 	zh_translations "gopkg.in/go-playground/validator.v9/translations/zh"
 	"reqing.org/ibispay/config"
@@ -43,63 +44,63 @@ func BindForm() {
 }
 
 func register() {
-	hero.Register(func(ctx iris.Context) (form RegisterForm) {
+	hero.Register(func(ctx context.Context) (form RegisterForm) {
 		handleJSON(ctx, &form, form.RegisterFieldTrans())
 		return
 	})
 }
 
 func login() {
-	hero.Register(func(ctx iris.Context) (form LoginForm) {
+	hero.Register(func(ctx context.Context) (form LoginForm) {
 		handleJSON(ctx, &form, form.LoginFieldTrans())
 		return
 	})
 }
 
 func newPwd() {
-	hero.Register(func(ctx iris.Context) (form NewPwdForm) {
+	hero.Register(func(ctx context.Context) (form NewPwdForm) {
 		handleJSON(ctx, &form, form.NewPwdFieldTrans())
 		return
 	})
 }
 
 func newProfie() {
-	hero.Register(func(ctx iris.Context) (form ProfileForm) {
+	hero.Register(func(ctx context.Context) (form ProfileForm) {
 		handleJSON(ctx, &form, form.ProfileFieldTrans())
 		return
 	})
 }
 
 func newSkill() {
-	hero.Register(func(ctx iris.Context) (form NewSkillForm) {
+	hero.Register(func(ctx context.Context) (form NewSkillForm) {
 		handleForm(ctx, &form, form.NewSkillFieldTrans())
 		return
 	})
 }
 
 func updateSkill() {
-	hero.Register(func(ctx iris.Context) (form UpdateSkillForm) {
+	hero.Register(func(ctx context.Context) (form UpdateSkillForm) {
 		handleJSON(ctx, &form, form.UpdateSkillFieldTrans())
 		return
 	})
 }
 
 func newPay() {
-	hero.Register(func(ctx iris.Context) (form NewPayForm) {
+	hero.Register(func(ctx context.Context) (form NewPayForm) {
 		handleJSON(ctx, &form, form.NewPayFieldTrans())
 		return
 	})
 }
 
 func newReq() {
-	hero.Register(func(ctx iris.Context) (form NewReqForm) {
+	hero.Register(func(ctx context.Context) (form NewReqForm) {
 		handleJSON(ctx, &form, form.NewReqFieldTrans())
 		return
 	})
 }
 
 func newRepay() {
-	hero.Register(func(ctx iris.Context) (form NewRepayForm) {
+	hero.Register(func(ctx context.Context) (form NewRepayForm) {
 		handleJSON(ctx, &form, form.NewRepayFieldTrans())
 		return
 	})
@@ -107,7 +108,7 @@ func newRepay() {
 
 //=========common func==========
 
-func handleJSON(ctx iris.Context, form interface{}, fieldTrans FieldTrans) {
+func handleJSON(ctx context.Context, form interface{}, fieldTrans FieldTrans) {
 	e := new(CommonError)
 	// ---bind form---
 	err := ctx.ReadJSON(form)
@@ -123,7 +124,7 @@ func handleJSON(ctx iris.Context, form interface{}, fieldTrans FieldTrans) {
 	e.CheckError(ctx, err, iris.StatusNotAcceptable, config.Public.Err.E1002, nil)
 }
 
-func handleForm(ctx iris.Context, form interface{}, fieldTrans FieldTrans) {
+func handleForm(ctx context.Context, form interface{}, fieldTrans FieldTrans) {
 	e := new(CommonError)
 	// ---bind form---
 	err := ctx.ReadForm(form)

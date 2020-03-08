@@ -6,7 +6,8 @@ import (
 
 	"github.com/asaskevich/govalidator"
 	"github.com/go-xorm/xorm"
-	"github.com/kataras/iris"
+	"github.com/kataras/iris/v12"
+	"github.com/kataras/iris/v12/context"
 	"github.com/rs/xid"
 	"gopkg.in/h2non/bimg.v1"
 	"reqing.org/ibispay/config"
@@ -16,7 +17,7 @@ import (
 )
 
 //NewPic 上传图片
-func NewPic(ctx iris.Context) {
+func NewPic(ctx context.Context) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	coinName := GetJwtUser(ctx)[config.JwtNameKey].(string)
@@ -69,7 +70,7 @@ func NewPic(ctx iris.Context) {
 }
 
 //CheckPicHash 检查图片是否已经上传过
-func CheckPicHash(ctx iris.Context) {
+func CheckPicHash(ctx context.Context) {
 	e := new(model.CommonError)
 	pq := GetPQ(ctx)
 	hash := ctx.Params().Get("hash")

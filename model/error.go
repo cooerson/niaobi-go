@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	ut "github.com/go-playground/universal-translator"
-	"github.com/kataras/iris"
+	"github.com/kataras/iris/v12/context"
 	validator "gopkg.in/go-playground/validator.v9"
 )
 
@@ -55,7 +55,7 @@ func NewValidatorErrorDetail(trans ut.Translator, err error, fieldTrans FieldTra
 }
 
 //CheckError iris 通用错误处理以及返回
-func (ce *CommonError) CheckError(ctx iris.Context, err error, code int, msg string, detail ErrorDetail) {
+func (ce *CommonError) CheckError(ctx context.Context, err error, code int, msg string, detail ErrorDetail) {
 	if ce != nil && err != nil {
 		ce.Ok = false
 		ce.Msg = msg
@@ -69,7 +69,7 @@ func (ce *CommonError) CheckError(ctx iris.Context, err error, code int, msg str
 }
 
 //ReturnError iris 通用错误返回
-func (ce *CommonError) ReturnError(ctx iris.Context, code int, msg string) {
+func (ce *CommonError) ReturnError(ctx context.Context, code int, msg string) {
 	if ce != nil {
 		ce.Ok = false
 		ce.Msg = msg
@@ -80,7 +80,7 @@ func (ce *CommonError) ReturnError(ctx iris.Context, code int, msg string) {
 }
 
 //FinalError iris 通用错误最终返回，无panic
-func (ce *CommonError) FinalError(ctx iris.Context, code int, msg string) {
+func (ce *CommonError) FinalError(ctx context.Context, code int, msg string) {
 	if ce != nil {
 		ce.Ok = false
 		ce.Msg = msg
