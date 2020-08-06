@@ -9,10 +9,10 @@ import (
 	"github.com/kataras/iris/v12/context"
 	"github.com/rs/xid"
 	"golang.org/x/crypto/blake2b"
-	"reqing.org/ibispay/config"
-	"reqing.org/ibispay/db"
-	"reqing.org/ibispay/model"
-	"reqing.org/ibispay/util"
+	"reqing.org/niaobi-go/config"
+	"reqing.org/niaobi-go/db"
+	"reqing.org/niaobi-go/model"
+	"reqing.org/niaobi-go/util"
 )
 
 //NewSkill 新建技能

@@ -16,10 +16,10 @@ import (
 	"github.com/kr/beanstalk"
 	"github.com/rs/xid"
 	"github.com/thinkeridea/go-extend/exbytes"
-	"reqing.org/ibispay/config"
-	"reqing.org/ibispay/db"
-	"reqing.org/ibispay/model"
-	"reqing.org/ibispay/util"
+	"reqing.org/niaobi-go/config"
+	"reqing.org/niaobi-go/db"
+	"reqing.org/niaobi-go/model"
+	"reqing.org/niaobi-go/util"
 )
 
 //规格：一秒钟处理10条交易即可

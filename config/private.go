@@ -20,7 +20,7 @@ const (
 	PQPwd       = ""
 	PQDBName    = "ibispay"
 	//UUIDKey
-	UUIDNameSpace = "ibispay-go"
+	UUIDNameSpace = "niaobi-go"
 	//PWDSalt 密码加密key
 	PWDSalt = "f08ff5530360d348b97b4128d4ba4eb888a68a795980e3813afa3144fdce33d4"
 	//JWTSecret jwt密钥

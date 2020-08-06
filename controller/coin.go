@@ -20,10 +20,10 @@ import (
 	"golang.org/x/crypto/scrypt"
 	"gopkg.in/h2non/bimg.v1"
 
-	"reqing.org/ibispay/config"
-	"reqing.org/ibispay/db"
-	"reqing.org/ibispay/model"
-	"reqing.org/ibispay/util"
+	"reqing.org/niaobi-go/config"
+	"reqing.org/niaobi-go/db"
+	"reqing.org/niaobi-go/model"
+	"reqing.org/niaobi-go/util"
 )
 
 //Register 注册

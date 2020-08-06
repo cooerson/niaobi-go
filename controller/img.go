@@ -10,10 +10,10 @@ import (
 	"github.com/kataras/iris/v12/context"
 	"github.com/rs/xid"
 	"gopkg.in/h2non/bimg.v1"
-	"reqing.org/ibispay/config"
-	"reqing.org/ibispay/db"
-	"reqing.org/ibispay/model"
-	"reqing.org/ibispay/util"
+	"reqing.org/niaobi-go/config"
+	"reqing.org/niaobi-go/db"
+	"reqing.org/niaobi-go/model"
+	"reqing.org/niaobi-go/util"
 )
 
 //NewPic 上传图片

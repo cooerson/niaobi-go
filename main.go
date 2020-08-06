@@ -18,10 +18,10 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/robfig/cron"
 
-	"reqing.org/ibispay/config"
-	"reqing.org/ibispay/controller"
-	"reqing.org/ibispay/db"
-	"reqing.org/ibispay/model"
+	"reqing.org/niaobi-go/config"
+	"reqing.org/niaobi-go/controller"
+	"reqing.org/niaobi-go/db"
+	"reqing.org/niaobi-go/model"
 )
 
 var (

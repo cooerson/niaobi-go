@@ -14,17 +14,11 @@ AllowedHost = [
     "www.xingdongpai.org",
     "niaobi.org", 
     "www.niaobi.org",
-    "niaobi.net", 
-    "www.niaobi.net",
-    "ibis.love", 
-    "www.ibis.love",
-    "kunlun.fun", 
-    "www.kunlun.fun",
 ]
 
 [dir]
 # RootDir 部署时的公共文件夹根目录
-RootDir = "/Users/cooerson/Documents/go/src/reqing.org/ibispay"
+RootDir = "/Users/cooerson/Documents/go/src/reqing.org/niaobi-go"
 # DataDir 用户文件目录，如：RootDir+/files/udata/userid/pic(or video..)
 DataDir = "/files/udata"
 
@@ -42,7 +36,7 @@ RmbM2Now = 1986488.82
 # 保留一些系统关键字，避免引发歧义和混淆
 # 比较英文是否相同时，不区分大小写
 SysName = [
-    "COIN","BOND","IBISPAY","XINGDONGPAI","NIAOBI","RMB","USD",
+    "COIN","BOND","XINGDONGPAI","NIAOBI","RMB","USD",
     "鸟币","血盟","契约","支付","官方","合同","合约","认证","国"]
 
 

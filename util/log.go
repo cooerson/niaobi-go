@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"reqing.org/ibispay/config"
+	"reqing.org/niaobi-go/config"
 )
 
 //LogDebug 在debug时打印

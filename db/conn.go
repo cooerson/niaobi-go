@@ -10,7 +10,7 @@ import (
 	"github.com/go-xorm/xorm"
 	"gopkg.in/h2non/bimg.v1"
 
-	"reqing.org/ibispay/config"
+	"reqing.org/niaobi-go/config"
 )
 
 //PicMeta 图片信息

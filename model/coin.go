@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"reqing.org/ibispay/db"
+	"reqing.org/niaobi-go/db"
 )
 
 //UpdateRes 成功更新响应

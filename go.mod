@@ -1,4 +1,4 @@
-module reqing.org/ibispay
+module reqing.org/niaobi-go
 
 go 1.13
 

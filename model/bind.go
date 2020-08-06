@@ -8,8 +8,8 @@ import (
 	"github.com/kataras/iris/v12/hero"
 	validator "gopkg.in/go-playground/validator.v9"
 	zh_translations "gopkg.in/go-playground/validator.v9/translations/zh"
-	"reqing.org/ibispay/config"
-	"reqing.org/ibispay/util"
+	"reqing.org/niaobi-go/config"
+	"reqing.org/niaobi-go/util"
 )
 
 var (
