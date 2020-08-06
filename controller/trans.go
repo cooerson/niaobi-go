@@ -22,6 +22,8 @@ import (
 	"reqing.org/ibispay/util"
 )
 
+//规格：一秒钟处理10条交易即可
+
 //NewPay 发行或转手鸟币
 func NewPay(ctx context.Context, form model.NewPayForm) {
 	e := new(model.CommonError)

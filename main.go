@@ -1,12 +1,8 @@
 package main //niaobi.org by 鸟神
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/beanstalkd/go-beanstalk"
@@ -21,14 +17,11 @@ import (
 	"github.com/kataras/iris/v12/middleware/recover"
 	_ "github.com/lib/pq"
 	"github.com/robfig/cron"
-	"github.com/thinkeridea/go-extend/exbytes"
-	"github.com/thinkeridea/go-extend/exstrings"
 
 	"reqing.org/ibispay/config"
 	"reqing.org/ibispay/controller"
 	"reqing.org/ibispay/db"
 	"reqing.org/ibispay/model"
-	"reqing.org/ibispay/util"
 )
 
 var (
@@ -66,6 +59,15 @@ func main() {
 		Expiration: true,
 	})
 
+	crs := func(ctx iris.Context) {
+		if config.Public.Debug {
+			ctx.Header("Access-Control-Allow-Origin", "*")
+			ctx.Header("Access-Control-Allow-Credentials", "true")
+			ctx.Header("Access-Control-Allow-Headers", "Access-Control-Allow-Origin,X-HTTP-Method-Override,Content-Type")
+			ctx.Next()
+		}
+	}
+
 	//限制请求次数每秒3次
 	limiter := tollbooth.NewLimiter(3, nil)
 
@@ -89,14 +91,15 @@ func main() {
 	//人民币兑换鸟币汇率（1人民币=多少鸟币），仅供定价时参考，不可直接使用"RmbExr*人民币兑其他某个法币货币的汇率"来计算"其他某个法币货币兑鸟币的汇率"
 	//在系统中正确的计算其他货币兑鸟币的汇率的方法：如港币，应该是港币当前的M2与鸟币创世时的港币M2的比值
 	//注意，备用方案config.Public.Exr.RmbExr是管理员手动维护的数据，见config.toml
-	app.Get("/exr/rmb", func(ctx context.Context) {
+	app.Get("/exr/rmb", crs, func(ctx context.Context) {
 		res := rmbExrRes{RmbExr: rmbExr}
 		ctx.JSON(&res)
 	})
 
-	app.Post("/register", hero.Handler(controller.Register)) //注册
-	app.Post("/login", hero.Handler(controller.Login))       //登录
-	coin := app.Party("coin")
+	app.Post("/login", crs, hero.Handler(controller.Login))       //登录
+	app.Post("/register", crs, hero.Handler(controller.Register)) //注册
+
+	coin := app.Party("coin", crs)
 	{
 		coin.Use(jwt.Serve)
 		{
@@ -110,7 +113,7 @@ func main() {
 		}
 	}
 
-	skill := app.Party("skill")
+	skill := app.Party("skill", crs)
 	{
 		skill.Use(jwt.Serve)
 		{
@@ -122,7 +125,7 @@ func main() {
 		}
 	}
 
-	trans := app.Party("tx")
+	trans := app.Party("tx", crs)
 	{
 		trans.Use(jwt.Serve)
 		{
@@ -136,7 +139,7 @@ func main() {
 		}
 	}
 
-	img := app.Party("img")
+	img := app.Party("img", crs)
 	{
 		img.Use(jwt.Serve)
 		{
@@ -160,6 +163,9 @@ func main() {
 		var e = new(model.CommonError)
 		e.FinalError(ctx, iris.StatusRequestEntityTooLarge, config.Public.Err.E1014)
 	})
+
+	app.HandleDir("/", "./view/api_test.html")
+
 	app.Run(iris.Addr("localhost:3001"))
 }
 
@@ -222,63 +228,63 @@ func (jobRMBExr) Run() {
 
 	//注意：不同国家需要使用各自国家的M2
 	//每隔一段时间，自动更新人民币m2，此处数据来自新浪财经。官方来源 http://www.pbc.gov.cn/diaochatongjisi/116219/116319/3750274/3750284/index.html
-	resp, err := http.Get("http://money.finance.sina.com.cn/mac/api/jsonp.php/SINAREMOTECALLCALLBACK/MacPage_Service.get_pagedata?cate=fininfo&event=1&from=0&num=1&condition")
+	// resp, err := http.Get("http://money.finance.sina.com.cn/mac/api/jsonp.php/SINAREMOTECALLCALLBACK/MacPage_Service.get_pagedata?cate=fininfo&event=1&from=0&num=1&condition")
 
-	/**
-	http响应失败时，resp变量将为 nil，而 err变量将是 non-nil。
-	当得到一个重定向的错误时，两个变量都将是 non-nil。这意味着最后依然会内存泄露。
-	防止内存泄漏的正确写法:
-	*/
-	if resp != nil {
-		defer resp.Body.Close()
-	}
-	if err != nil {
-		rmbExr = config.Public.Exr.RmbExr
-		return
-	}
+	// /**
+	// http响应失败时，resp变量将为 空值，而 err变量将是 非空值。
+	// 当得到一个重定向的错误时，两个变量都将是 非空值。这意味着最后依然会内存泄露。
+	// 防止内存泄漏的正确写法:
+	// */
+	// if resp != nil {
+	// 	defer resp.Body.Close()
+	// }
+	// if err != nil {
+	// 	rmbExr = config.Public.Exr.RmbExr
+	// 	return
+	// }
 
-	//流式读取数据
-	str := bytes.NewBufferString("")
-	err = util.ReadReader(resp.Body, func(block []byte) {
-		str.WriteString(exbytes.ToString(block))
-	})
-	if err != nil {
-		rmbExr = config.Public.Exr.RmbExr
-		return
-	}
+	// //流式读取数据
+	// str := bytes.NewBufferString("")
+	// err = util.ReadReader(resp.Body, func(block []byte) {
+	// 	str.WriteString(exbytes.ToString(block))
+	// })
+	// if err != nil {
+	// 	rmbExr = config.Public.Exr.RmbExr
+	// 	return
+	// }
 
-	//格式整理
-	s := str.String()
-	idx := strings.LastIndex(s, "data:")
-	if idx < 1 {
-		rmbExr = config.Public.Exr.RmbExr
-		return
-	}
-	newstr := s[idx:]
-	newstr = exstrings.SubString(newstr, 6, len(newstr)-10)
-	util.LogDebug(newstr)
+	// //格式整理
+	// s := str.String()
+	// idx := strings.LastIndex(s, "data:")
+	// if idx < 1 {
+	// 	rmbExr = config.Public.Exr.RmbExr
+	// 	return
+	// }
+	// newstr := s[idx:]
+	// newstr = exstrings.SubString(newstr, 6, len(newstr)-10)
+	// util.LogDebug(newstr)
 
-	var arr []string
-	json.Unmarshal([]byte(newstr), &arr)
-	if err != nil {
-		rmbExr = config.Public.Exr.RmbExr
-		return
-	}
-	m2Now, err := strconv.ParseFloat(arr[1], 64)
-	if err != nil {
-		rmbExr = config.Public.Exr.RmbExr
-		return
-	}
-	rmbExr = m2Now / config.Public.Exr.RmbM2Init
-	if rmbExr < config.Public.Exr.RmbExr {
-		rmbExr = config.Public.Exr.RmbExr
-	}
+	// var arr []string
+	// json.Unmarshal([]byte(newstr), &arr)
+	// if err != nil {
+	// 	rmbExr = config.Public.Exr.RmbExr
+	// 	return
+	// }
+	// m2Now, err := strconv.ParseFloat(arr[1], 64)
+	// if err != nil {
+	// 	rmbExr = config.Public.Exr.RmbExr
+	// 	return
+	// }
+	// rmbExr = m2Now / config.Public.Exr.RmbM2Init
+	// if rmbExr < config.Public.Exr.RmbExr {
+	rmbExr = config.Public.Exr.RmbExr
+	// }
 }
 
 //超时未接受的兑现请求处理
 func jobReqCheck() {
-	//每隔10毫秒循环一次，一分钟可以查询6000条数据，记录读取超时时间为200毫秒
-	interval := 10 * time.Millisecond
+	//每隔20毫秒循环一次，一分钟可以查询3000条数据，记录读取超时时间为200毫秒
+	interval := 20 * time.Millisecond
 	timeOut := 200 * time.Millisecond
 	gtimer.Add(interval, func() {
 		conn, _ := beanstalk.Dial("tcp", config.BeanstalkURI)

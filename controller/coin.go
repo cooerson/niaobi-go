@@ -26,41 +26,6 @@ import (
 	"reqing.org/ibispay/util"
 )
 
-//Login 登录
-func Login(ctx context.Context, form model.LoginForm) {
-	e := new(model.CommonError)
-	pq := GetPQ(ctx)
-
-	//检查手机号
-	num, err := libphonenumber.Parse(form.Phone, form.PhoneCC)
-	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1008, nil)
-	//手机号格式都为E164 eg.+8618612345678
-	formattedNum := libphonenumber.Format(num, libphonenumber.E164)
-	//检查手机号是否未注册
-	exist, err := pq.Exist(&db.Coin{Phone: formattedNum})
-	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
-	if exist == false {
-		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1009)
-	}
-
-	//获取加密后的密码
-	strSafePwd, err := getSafePWD(form.Pwd)
-	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1002, nil)
-
-	//检查鸟币是否被注册
-	coin := db.Coin{}
-	has, err := pq.Where("phone = ? and pwd = ?", formattedNum, strSafePwd).Cols("id, name, pwd").Get(&coin)
-	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
-	if has == false {
-		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1005)
-	}
-
-	// 生成token
-	token, exp := GetNewJwtToken(&coin)
-	res := model.LoginRes{Token: token, Expire: exp}
-	ctx.JSON(&res)
-}
-
 //Register 注册
 func Register(ctx context.Context, form model.RegisterForm) {
 	e := new(model.CommonError)
@@ -139,6 +104,41 @@ func Register(ctx context.Context, form model.RegisterForm) {
 	GoGenQRC(&coin)
 	//生成默认头像
 	GoGenDefaultAvatar(&coin)
+}
+
+//Login 登录
+func Login(ctx context.Context, form model.LoginForm) {
+	e := new(model.CommonError)
+	pq := GetPQ(ctx)
+
+	//检查手机号
+	num, err := libphonenumber.Parse(form.Phone, form.PhoneCC)
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1008, nil)
+	//手机号格式都为E164 eg.+8618612345678
+	formattedNum := libphonenumber.Format(num, libphonenumber.E164)
+	//检查手机号是否注册
+	exist, err := pq.Exist(&db.Coin{Phone: formattedNum})
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
+	if exist == false {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1009)
+	}
+
+	//获取加密后的密码
+	strSafePwd, err := getSafePWD(form.Pwd)
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1002, nil)
+
+	//检查鸟币是否被注册
+	coin := db.Coin{}
+	has, err := pq.Where("phone = ? and pwd = ?", formattedNum, strSafePwd).Cols("id, name, pwd").Get(&coin)
+	e.CheckError(ctx, err, iris.StatusInternalServerError, config.Public.Err.E1004, nil)
+	if has == false {
+		e.ReturnError(ctx, iris.StatusOK, config.Public.Err.E1005)
+	}
+
+	// 生成token
+	token, exp := GetNewJwtToken(&coin)
+	res := model.LoginRes{Token: token, Expire: exp}
+	ctx.JSON(&res)
 }
 
 //UpdatePwd 修改密码

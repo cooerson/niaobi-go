@@ -18,7 +18,9 @@ require (
 	github.com/imkira/go-interpol v1.1.0 // indirect
 	github.com/ipsn/go-adorable v1.0.0
 	github.com/iris-contrib/formBinder v5.0.0+incompatible // indirect
+	github.com/iris-contrib/middleware/cors v0.0.0-20191219204441-78279b78a367
 	github.com/iris-contrib/middleware/jwt v0.0.0-20191219204441-78279b78a367
+	github.com/iris-contrib/middleware/secure v0.0.0-20191219204441-78279b78a367
 	github.com/iris-contrib/middleware/tollboothic v0.0.0-20191219204441-78279b78a367
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
 	github.com/kataras/iris v11.1.1+incompatible
